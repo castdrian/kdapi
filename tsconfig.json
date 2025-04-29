@@ -9,12 +9,20 @@
 		"allowJs": true,
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
+		"baseUrl": ".",
 		"paths": {
 			"@/*": [
-				"./*"
+				"./src/*"
 			]
 		},
-		"baseUrl": ".",
-		"outDir": "dist"
-	}
+		"outDir": "dist",
+		"rootDir": "src"
+	},
+	"include": [
+		"src/**/*"
+	],
+	"exclude": [
+		"node_modules",
+		"dist"
+	]
 }

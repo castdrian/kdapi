@@ -1,14 +1,14 @@
 {
   "name": "@melon/kdapi",
-  "module": "index.ts",
+  "module": "src/index.ts",
   "type": "module",
   "description": "Korean idol and group profiles dataset generator",
   "version": "0.1.0",
   "bin": {
-    "kdapi": "./cli.ts"
+    "kdapi": "./src/cli.ts"
   },
   "exports": {
-    ".": "./index.ts",
+    ".": "./src/index.ts",
     "./data": "./data/index.ts"
   },
   "devDependencies": {
@@ -20,7 +20,7 @@
   "dependencies": {
     "cheerio": "^1.0.0",
     "commander": "^13.1.0",
-    "date-fns": "^3.3.1",
+    "date-fns": "^4.1.0",
     "undici": "^7.8.0",
     "uuid": "^11.1.0",
     "zod": "^3.22.4"

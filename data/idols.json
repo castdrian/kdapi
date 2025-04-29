@@ -1,0 +1,224 @@
+{
+  "femaleIdols": [
+    {
+      "id": "93c9bcec-1bfe-4c25-9390-a58287eb1ef6",
+      "profileUrl": "https://kpopping.com/profiles/idol/1000",
+      "imageUrl": "https://kpopping.com/documents/28/3/social-widget/1000-facePicture.webp?v=dd13f",
+      "description": "1000°, also written as Cheondo and formerly known by her name Seobin, is a South Korean singer-songwriter under Sticky House Entertainment. She made her...",
+      "names": {
+        "stage": "1000°",
+        "korean": "천도",
+        "birth": {
+          "latin": "Lee Seo-bin",
+          "hangeul": "이서빈"
+        },
+        "aliases": [
+          "Cheondo",
+          "formerly known by her name Seobin"
+        ]
+      },
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": "Xanadu Entertainment",
+        "history": [
+          {
+            "name": "Xanadu Entertainment"
+          }
+        ]
+      },
+      "socialMedia": {
+        "instagram": "https://www.instagram.com/1000degrees_official/",
+        "youtube": "https://www.youtube.com/@1000_degrees/",
+        "tiktok": "https://www.tiktok.com/@1000degrees_official"
+      },
+      "personalInfo": {
+        "nationality": "South Korea"
+      },
+      "careerInfo": {
+        "showAppearances": [
+          {
+            "name": "CAP-TEEN",
+            "type": "survival",
+            "year": "2020"
+          },
+          {
+            "name": "CAP-TEEN",
+            "type": "survival",
+            "year": "2020"
+          }
+        ]
+      }
+    },
+    {
+      "id": "4aedaf61-f510-4aa3-b11f-ab9a8bca06b6",
+      "profileUrl": "https://kpopping.com/profiles/idol/1014",
+      "imageUrl": "https://kpopping.com/documents/c5/4/social-widget/1014-facePicture.webp?v=6ca92",
+      "description": "1014, formerly known as Jeong Yeonsoo, is a South Korean singer and songwriter under INHEART MUSIC. Prior to her official debut, she released several si...",
+      "names": {
+        "stage": "1014",
+        "korean": "시월십사일",
+        "birth": {
+          "latin": "Jeong Yeonsoo",
+          "hangeul": "정연수"
+        },
+        "aliases": [
+          "Jeong Yeonsoo"
+        ]
+      },
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": "INHEART MUSIC",
+        "history": [
+          {
+            "name": "INHEART MUSIC"
+          }
+        ]
+      },
+      "socialMedia": {
+        "facebook": "https://www.facebook.com/Oct14th/",
+        "instagram": "https://www.instagram.com/oct__14th",
+        "youtube": "https://www.youtube.com/1014_Official?app=desktop",
+        "spotify": "https://open.spotify.com/artist/6DrNvtiDIKjnRsb7S67iKx?si=9P2tTz02S2aMGeeXd66Vfw"
+      },
+      "personalInfo": {
+        "nationality": "South Korea"
+      }
+    },
+    {
+      "id": "88af5bdb-e80d-47da-a87b-3e4e127ae277",
+      "profileUrl": "https://kpopping.com/profiles/idol/148",
+      "imageUrl": "https://kpopping.com/documents/cc/4/social-widget/148-facePicture(1).webp?v=9884c",
+      "description": "148 is a South Korean singer, born on Feburary 14, and member of the South Korean live idol girl group Reconquista. She used to be in the group YUBiKiRi...",
+      "names": {
+        "stage": "148",
+        "korean": "알사팔"
+      },
+      "active": true,
+      "status": "active",
+      "socialMedia": {
+        "twitter": "https://x.com/148_REQUISTA",
+        "instagram": "https://www.instagram.com/1.444488888888/"
+      },
+      "personalInfo": {
+        "nationality": "South Korea"
+      }
+    },
+    {
+      "id": "f85be055-1466-483f-8321-41d1e7484fbf",
+      "profileUrl": "https://kpopping.com/profiles/idol/19-NANA",
+      "imageUrl": "https://kpopping.com/documents/84/4/social-widget/19-NANA-facePicture(1).webp?v=6ca92",
+      "description": "19 (NANA) is a South Korean indie artist. She made her debut in 2018 with the release of her single album titled “Summer Side A.'",
+      "names": {
+        "stage": "19 (NANA)",
+        "korean": ""
+      },
+      "active": true,
+      "status": "active",
+      "socialMedia": {
+        "twitter": "https://x.com/19xNANA",
+        "youtube": "https://www.youtube.com/channel/UCxjkI1Nmi4HYhvtdN4_oHqw",
+        "spotify": "https://open.spotify.com/artist/78jvgJzB3suwIRLJTuRrX7?si=XqPrYjg9Sa6_gTVxXb8lBA",
+        "website": "https://19xnineteen.tumblr.com/"
+      },
+      "personalInfo": {
+        "nationality": "South Korea"
+      }
+    },
+    {
+      "id": "efc63296-466c-42ab-b36c-8383b11d7c91",
+      "profileUrl": "https://kpopping.com/profiles/idol/1soyun",
+      "imageUrl": "https://kpopping.com/documents/35/0/social-widget/1soyun-facePicture(2).webp?v=9d5c0",
+      "description": "Won So Yoon, better known as 1soyun, is an independent R&B and Soul solo singer and dancer. She made her debut with the self written and composed “Sweet...",
+      "names": {
+        "stage": "1soyun",
+        "korean": "원소윤",
+        "birth": {
+          "latin": "Won So Yoon",
+          "hangeul": "원소윤"
+        }
+      },
+      "active": true,
+      "status": "active",
+      "socialMedia": {
+        "facebook": "https://www.facebook.com/1soyuN",
+        "website": "https://soundcloud.com/1soyun"
+      },
+      "personalInfo": {
+        "nationality": "South Korea"
+      }
+    }
+  ],
+  "maleIdols": [
+    {
+      "id": "97bfd816-d182-451e-b750-4de965557d82",
+      "profileUrl": "https://kpopping.com/profiles/idol/magnic",
+      "imageUrl": "https://kpopping.com/documents/a3/4/social-widget/magnic-facePicture(2).webp?v=97c0a",
+      "description": "!magnic!, born Jo Hyun-soo is a South Korean rapper who debuted under AVLX in 2014.",
+      "names": {
+        "stage": "!magnic!",
+        "korean": "",
+        "birth": {
+          "latin": "Jo Hyun-soo",
+          "hangeul": "조현수"
+        }
+      },
+      "active": true,
+      "status": "active",
+      "socialMedia": {
+        "instagram": "https://www.instagram.com/1mgnc1/",
+        "spotify": "https://open.spotify.com/artist/5mekzJ7RLIBCPObCGOh07N?si=8alfPXLgQ5eBl9PvESorxA&utm_source=copy-link",
+        "website": "https://soundcloud.com/1magnic1"
+      },
+      "personalInfo": {
+        "nationality": "South Korea"
+      }
+    },
+    {
+      "id": "90192dbc-2581-4fa1-94e9-2b28beaa934c",
+      "profileUrl": "https://kpopping.com/profiles/idol/0820",
+      "imageUrl": "https://kpopping.com/documents/73/0/social-widget/0820-facePicture(1).webp?v=6ca92",
+      "description": "0820 is a South Korean singer, songwriter and producer who debuted in 2018 with the single album ROMEO.",
+      "names": {
+        "stage": "0820",
+        "birth": {
+          "latin": "Jeon geunwoo",
+          "hangeul": "전근우"
+        }
+      },
+      "active": true,
+      "status": "active",
+      "socialMedia": {
+        "instagram": "https://www.instagram.com/x_youngcode_0820/"
+      },
+      "personalInfo": {
+        "nationality": "South Korea"
+      }
+    },
+    {
+      "id": "d334b469-2416-4400-a22b-ade3a6f78378",
+      "profileUrl": "https://kpopping.com/profiles/idol/104",
+      "imageUrl": "https://kpopping.com/documents/96/1/social-widget/104-facePicture.webp?v=6ca92",
+      "description": "104 is a South Korean rapper who officially debuted with the mini-album, “Wicked” on August 10, 2020.",
+      "names": {
+        "stage": "104",
+        "korean": "백사",
+        "birth": {
+          "latin": "Lee Jinyoung"
+        }
+      },
+      "active": true,
+      "status": "active",
+      "socialMedia": {
+        "instagram": "https://www.instagram.com/jinyoung104/",
+        "youtube": "https://www.youtube.com/watch?v=RvTvKsNVA9k",
+        "spotify": "https://open.spotify.com/artist/70lxm9Zz1sKBCez2iEHnu8?si=ImDS_TeJSqqgSXhYwNGhzA",
+        "website": "https://soundcloud.com/beaksa"
+      },
+      "personalInfo": {
+        "nationality": "South Korea"
+      }
+    }
+  ]
+}

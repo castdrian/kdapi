@@ -1,0 +1,35 @@
+{
+  "lastUpdated": "2025-05-01T10:35:29.436Z",
+  "version": "0.1.0",
+  "coverage": {
+    "startDate": "",
+    "endDate": "2025-05-01"
+  },
+  "stats": {
+    "groups": {
+      "total": 9,
+      "active": {
+        "girl": 3,
+        "boy": 3,
+        "coed": 3
+      },
+      "disbanded": {
+        "girl": 0,
+        "boy": 0,
+        "coed": 0
+      }
+    },
+    "idols": {
+      "total": 8,
+      "active": {
+        "female": 5,
+        "male": 3
+      },
+      "inactive": {
+        "female": 0,
+        "male": 0
+      }
+    },
+    "total": 17
+  }
+}
