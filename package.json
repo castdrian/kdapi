@@ -1,0 +1,21 @@
+{
+  "name": "@melon/kdapi",
+  "module": "index.ts",
+  "type": "module",
+  "description": "Korean idol and group profiles dataset generator",
+  "version": "0.1.0",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "node-fetch": "^3.3.2",
+    "puppeteer": "^24.7.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@types/uuid": "^10.0.0",
+    "axios": "^1.9.0",
+    "cheerio": "^1.0.0",
+    "uuid": "^11.1.0"
+  }
+}
