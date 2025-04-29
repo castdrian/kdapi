@@ -1,107 +1,71 @@
-import { cleanAndUpdate } from './cleanAndUpdateData';
-import { URLS, fetchHtml, extractProfileLinks } from './scraper';
-import * as fs from 'fs';
-import * as path from 'path';
-import type { Idol, Group } from './types';
+import type { Idol, Group, DataSet } from '@/types';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 
+// Dataset paths
 const DATA_DIR = path.join(__dirname, 'data');
-const ANALYSIS_DIR = path.join(DATA_DIR, 'analysis');
+const DATASET_PATH = path.join(DATA_DIR, 'dataset.json');
 
-// Ensure directories exist
-if (!fs.existsSync(DATA_DIR)) {
-	fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-if (!fs.existsSync(ANALYSIS_DIR)) {
-	fs.mkdirSync(ANALYSIS_DIR, { recursive: true });
-}
-
-interface DebugOptions {
-	sampleSize?: number;
-	excludeProfiles?: string[];
-	saveRawHtml?: boolean;
+// Load and parse dataset
+function loadDataset(): DataSet {
+    try {
+        const rawData = fs.readFileSync(DATASET_PATH, 'utf-8');
+        return JSON.parse(rawData) as DataSet;
+    } catch (error) {
+        throw new Error('Dataset not found. Run `kdapi scrape` to generate the dataset first.');
+    }
 }
 
-async function getRandomProfiles(url: string, count: number, exclude: string[] = []): Promise<string[]> {
-	console.log(`Fetching profiles from ${url}`);
-	const html = await fetchHtml(url);
-	let links = extractProfileLinks(html);
-
-	// Filter out excluded profiles
-	links = links.filter(link =>
-		!exclude.some(ex => link.toLowerCase().includes(ex.toLowerCase()))
-	);
-
-	// Shuffle array
-	for (let i = links.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[links[i], links[j]] = [links[j], links[i]];
-	}
-
-	return links.slice(0, count);
+// Dataset access functions
+export function getFemaleIdols(): Idol[] {
+    return loadDataset().femaleIdols;
 }
 
-export async function runDebugMode(options: DebugOptions = {}) {
-	const {
-		sampleSize = 3,
-		excludeProfiles = ['bts', 'blackpink'],
-		saveRawHtml = true
-	} = options;
-
-	console.log('🔍 Running in debug mode...');
-	console.log(`Sample size: ${sampleSize} profiles per category`);
-	console.log(`Excluded profiles: ${excludeProfiles.join(', ')}`);
-
-	// Get random profile URLs
-	const profileUrls = {
-		femaleIdols: await getRandomProfiles(URLS.femaleIdols, sampleSize, excludeProfiles),
-		maleIdols: await getRandomProfiles(URLS.maleIdols, sampleSize, excludeProfiles),
-		girlGroups: await getRandomProfiles(URLS.girlGroups, sampleSize, excludeProfiles),
-		boyGroups: await getRandomProfiles(URLS.boyGroups, sampleSize, excludeProfiles),
-		coedGroups: await getRandomProfiles(URLS.coedGroups, sampleSize, excludeProfiles)
-	};
-
-	// Save selected URLs for reference
-	fs.writeFileSync(
-		path.join(DATA_DIR, 'debug_urls.json'),
-		JSON.stringify(profileUrls, null, 2)
-	);
-
-	// Run scraper with debug URLs
-	await cleanAndUpdate(profileUrls);
-
-	console.log('\n✅ Debug scraping complete!');
-	console.log('Check data/debug_urls.json for scraped profiles');
-	console.log('Check data/idols.json and data/groups.json for results');
+export function getMaleIdols(): Idol[] {
+    return loadDataset().maleIdols;
 }
 
-export async function runProductionMode() {
-	console.log('🚀 Running in production mode...');
-	await cleanAndUpdate();
-	console.log('\n✅ Production scraping complete!');
+export function getGirlGroups(): Group[] {
+    return loadDataset().girlGroups;
 }
 
-async function main() {
-	const args = process.argv.slice(2);
-	const mode = args[0] || 'production';
-	const sampleSize = args[1] ? parseInt(args[1]) : 3;
-
-	if (mode === 'debug') {
-		await runDebugMode({ sampleSize });
-	} else {
-		await runProductionMode();
-	}
+export function getBoyGroups(): Group[] {
+    return loadDataset().boyGroups;
 }
 
-// Run if called directly
-if (require.main === module) {
-	main().catch(error => {
-		console.error('Error:', error);
-		process.exit(1);
-	});
+export function getCoedGroups(): Group[] {
+    return loadDataset().coedGroups;
 }
 
-// Export for use as a module
-export default {
-	runDebugMode,
-	runProductionMode
-};
+// Search functions
+export function searchIdols(query: string): Idol[] {
+    const dataset = loadDataset();
+    const allIdols = [...dataset.femaleIdols, ...dataset.maleIdols];
+    const normalizedQuery = query.toLowerCase();
+
+    return allIdols.filter(idol => 
+        idol.name.toLowerCase().includes(normalizedQuery) ||
+        idol.stageName?.toLowerCase().includes(normalizedQuery) ||
+        idol.koreanName?.toLowerCase().includes(normalizedQuery) ||
+        idol.nicknames?.some(nick => nick.toLowerCase().includes(normalizedQuery)) ||
+        idol.groups?.some(g => g.groupName.toLowerCase().includes(normalizedQuery))
+    );
+}
+
+export function searchGroups(query: string): Group[] {
+    const dataset = loadDataset();
+    const allGroups = [...dataset.girlGroups, ...dataset.boyGroups, ...dataset.coedGroups];
+    const normalizedQuery = query.toLowerCase();
+
+    return allGroups.filter(group => 
+        group.name.toLowerCase().includes(normalizedQuery) ||
+        group.koreanName?.toLowerCase().includes(normalizedQuery) ||
+        group.fandom?.name.toLowerCase().includes(normalizedQuery) ||
+        group.memberHistory.currentMembers.some(m => 
+            m.name.toLowerCase().includes(normalizedQuery)
+        )
+    );
+}
+
+// Export types
+export type { Idol, Group, DataSet } from '@/types';

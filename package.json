@@ -4,18 +4,25 @@
   "type": "module",
   "description": "Korean idol and group profiles dataset generator",
   "version": "0.1.0",
+  "bin": {
+    "kdapi": "./cli.ts"
+  },
+  "exports": {
+    ".": "./index.ts",
+    "./data": "./data/index.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest",
-    "node-fetch": "^3.3.2",
-    "puppeteer": "^24.7.2"
-  },
-  "peerDependencies": {
+    "@types/uuid": "^10.0.0",
+    "bun-types": "latest",
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@types/uuid": "^10.0.0",
-    "axios": "^1.9.0",
     "cheerio": "^1.0.0",
-    "uuid": "^11.1.0"
+    "commander": "^13.1.0",
+    "date-fns": "^3.3.1",
+    "undici": "^7.8.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.22.4"
   }
 }
