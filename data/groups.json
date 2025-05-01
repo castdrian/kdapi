@@ -1,266 +1,278 @@
 {
   "girlGroups": [
     {
-      "id": "998b8c78-6e51-4bb5-ac2d-a46decc7996b",
-      "profileUrl": "https://kpopping.com/profiles/group/ny-day",
-      "imageUrl": "https://kpopping.com/documents/8e/4/social-widget/ny-day-fullPicture.webp?v=d7cf8",
-      "description": "-ny day is a live idol unit-group based in South Korea. The group consists of 4 members: Nab2, Matsu, Tsubasa, and MOYA. The members were all revealed o...",
+      "id": "c7a2ca0c-3a05-4e6d-a827-05c5e3a51882",
+      "profileUrl": "https://kpopping.com/profiles/group/PRIMROSE",
+      "imageUrl": "https://kpopping.com/documents/e4/1/social-widget/PRIMROSE-fullPicture(4).webp?v=12993",
       "names": {
-        "stage": "-ny day",
-        "korean": ""
+        "stage": "PRIMROSE",
+        "korean": "프림로즈",
+        "japanese": "ルビ",
+        "chinese": null,
+        "english": null
       },
-      "active": true,
-      "status": "active",
-      "type": "co-ed",
-      "memberCount": {
-        "current": 0,
-        "peak": 0
-      },
-      "socialMedia": {
-        "twitter": "https://x.com/nyday_ofcl"
-      }
-    },
-    {
-      "id": "4e0cc894-bb99-44a4-b0c7-6ae4f3a39a7c",
-      "profileUrl": "https://kpopping.com/profiles/group/G-I-DLE",
-      "imageUrl": "https://kpopping.com/documents/aa/3/social-widget/G-I-DLE-fullPicture(23).webp?v=dd8a8",
-      "description": "(G)I-DLE is a South Korean multi-national girl group under Cube Entertainment. The group consists of five members: Miyeon, Minnie, Soyeon, Yuqi, and Shu...",
-      "names": {
-        "stage": "(G)I-DLE",
-        "korean": ""
-      },
-      "active": true,
-      "status": "active",
-      "type": "co-ed",
-      "memberCount": {
-        "current": 0,
-        "peak": 0
-      },
+      "type": "group",
+      "active": false,
+      "status": "disbanded",
       "company": {
-        "current": "Cube Entertainment",
+        "current": "AO Entertainment",
         "history": [
           {
-            "name": "Cube Entertainment"
-          },
-          {
-            "name": "88rising"
-          },
-          {
-            "name": "Republic Records"
+            "name": "AO Entertainment",
+            "period": {
+              "start": "2022-01-01"
+            }
           }
         ]
       },
       "socialMedia": {
-        "facebook": "https://www.facebook.com/G.I.DLE.CUBE/",
-        "twitter": "https://twitter.com/G_I_DLE?s=09",
-        "instagram": "https://www.instagram.com/official_g_i_dle/",
-        "youtube": "https://www.youtube.com/channel/UCritGVo7pLJLUS8wEu32vow",
-        "tiktok": "https://www.tiktok.com/@official_gidle",
-        "spotify": "https://open.spotify.com/artist/2AfmfGFbe0A0WsTYm0SDTx",
-        "website": "http://www.cubeent.co.kr/cube_gidle",
-        "fancafe": "http://m.cafe.daum.net/cube-g-i-dle/_rec"
+        "facebook": "https://www.facebook.com/people/%ED%94%84%EB%A6%BC%EB%A1%9C%EC%A6%88-Primrose/100084435052487/",
+        "twitter": "https://twitter.com/primrose_ao",
+        "instagram": "https://www.instagram.com/primrose_0fficial/",
+        "youtube": "https://www.youtube.com/channel/UCMKXs7_6MhbceHRPbPjuMzg",
+        "tiktok": "https://www.tiktok.com/@primrose_0fficial",
+        "spotify": "https://open.spotify.com/artist/1nE2Iu4qK1fzslPJcLGq66",
+        "fancafe": "https://cafe.daum.net/primrose.official",
+        "website": "http://aoenter21.com/index/artist_group/1"
       }
     },
     {
-      "id": "6ff84329-b877-4933-a04d-90ae4a35d554",
-      "profileUrl": "https://kpopping.com/profiles/group/12DAL",
-      "imageUrl": "https://kpopping.com/documents/47/1/social-widget/12DAL-fullPicture.webp?v=d742a",
-      "description": "12DAL is a one-member South Korean band formed by XX Entertainment. The band debuted with two members: Nayul and Yerim on August 8, 2018 with digital si...",
+      "id": "b4520236-3762-4e6a-aa52-333a5c2418c5",
+      "profileUrl": "https://kpopping.com/profiles/group/MINIMANI",
+      "imageUrl": "https://kpopping.com/documents/e5/1/social-widget/MINIMANI-fullPicture(1).webp?v=180aa",
       "names": {
-        "stage": "12DAL",
-        "korean": "열두달"
+        "stage": "MINIMANI",
+        "korean": "미니마니",
+        "japanese": "ソン イー",
+        "chinese": null,
+        "english": null
       },
-      "active": true,
-      "status": "active",
-      "type": "co-ed",
-      "memberCount": {
-        "current": 0,
-        "peak": 0
-      },
+      "type": "group",
+      "active": false,
+      "status": "disbanded",
       "company": {
-        "current": "XX Entertainment",
+        "current": "CMG Stars",
         "history": [
           {
-            "name": "XX Entertainment"
+            "name": "CMG Stars",
+            "period": {
+              "start": "2021-01-01"
+            }
           }
         ]
       },
       "socialMedia": {
-        "facebook": "https://www.facebook.com/12DAL",
-        "twitter": "https://twitter.com/12DAL_twt",
-        "instagram": "https://www.instagram.com/12dal.xxent/",
-        "youtube": "https://www.youtube.com/channel/UCqulD2RnWGC6b5rSmrp0mvQ",
-        "spotify": "https://open.spotify.com/artist/6Y2UFKStWOiUYxIDE5QFKn",
-        "fancafe": "https://cafe.daum.net/12DAL"
+        "twitter": "https://twitter.com/minimani_mania",
+        "instagram": "https://www.instagram.com/minimani_official/",
+        "youtube": "https://www.youtube.com/channel/UCKDEv25BLSa7Ph2aNaBDiMQ",
+        "tiktok": "https://www.tiktok.com/@minimani_official",
+        "spotify": "https://open.spotify.com/artist/43dysUCEkaz91NrndjOVHi",
+        "fancafe": "https://cafe.daum.net/minimaniofficial"
+      }
+    },
+    {
+      "id": "d4b2a4f4-423d-4368-a894-13a6a23ad814",
+      "profileUrl": "https://kpopping.com/profiles/group/Mellowshiro",
+      "imageUrl": "https://kpopping.com/documents/4e/0/social-widget/MellowShiro-fullPicture.webp?v=e70d3",
+      "names": {
+        "stage": "Mellowshiro",
+        "korean": "멜로우시로",
+        "japanese": "설 ソル",
+        "chinese": null,
+        "english": null
+      },
+      "type": "group",
+      "active": false,
+      "status": "disbanded",
+      "company": {
+        "current": null
+      },
+      "socialMedia": {
+        "twitter": "https://x.com/_MellowShiro",
+        "youtube": "https://www.youtube.com/@Mellowshiro",
+        "spotify": "https://open.spotify.com/artist/6Y2jBYU20yHcw7nRPlreXQ"
       }
     }
   ],
   "boyGroups": [
     {
-      "id": "0adedcaa-4111-4a6b-9b36-6d38a2a109c8",
-      "profileUrl": "https://kpopping.com/profiles/group/M-IRROR",
-      "imageUrl": "https://kpopping.com/documents/cd/2/social-widget/M-IRROR-fullPicture(1).webp?v=fe728",
-      "description": "(M)IRROR, also stylized just as MIRROR, and known pre-debut as VT Trainee, was a 5-member boy group under VT Entertainment. The members were Sunho, Zeo,...",
+      "id": "174cd865-7815-452e-8ac7-7dba8fc746f8",
+      "profileUrl": "https://kpopping.com/profiles/group/0WAVE",
+      "imageUrl": "https://kpopping.com/documents/d5/4/social-widget/0WAVE-fullPicture(6).webp?v=b188f",
       "names": {
-        "stage": "(M)IRROR",
-        "korean": "미러"
+        "stage": "0WAVE",
+        "korean": "영웨이브",
+        "japanese": "アイボイ",
+        "chinese": null,
+        "english": null
       },
-      "active": true,
-      "status": "active",
-      "type": "co-ed",
-      "memberCount": {
-        "current": 0,
-        "peak": 0
-      },
+      "type": "group",
+      "active": false,
+      "status": "disbanded",
       "company": {
-        "current": "VT Entertainment",
+        "current": "PYRAT",
         "history": [
           {
-            "name": "VT Entertainment"
+            "name": "PYRAT",
+            "period": {
+              "start": "2022-01-01"
+            }
           }
         ]
       },
       "socialMedia": {
-        "twitter": "https://twitter.com/_officialMIRROR",
-        "spotify": "https://open.spotify.com/artist/7gjecRfd9wFScbYdg8AQZZ?si=grXZlO4WScGy-ZiotRjvTg"
+        "twitter": "https://twitter.com/0wave_0fficial",
+        "instagram": "https://www.instagram.com/0wave_0fficial",
+        "youtube": "https://www.youtube.com/channel/UCX8mM_SzTzli-poprIMTemA",
+        "tiktok": "https://www.tiktok.com/@0wave_0fficial",
+        "spotify": "https://open.spotify.com/artist/1nxCRfWuzM4GSCVfrqtlxz",
+        "website": "https://soundcloud.com/0wave"
       }
     },
     {
-      "id": "aa201612-f5aa-4aec-973e-6aa4d3ec08df",
-      "profileUrl": "https://kpopping.com/profiles/group/TEAM",
-      "imageUrl": "https://kpopping.com/documents/49/4/social-widget/TEAM-fullPicture(14).webp?v=5c429",
-      "description": "&TEAM is a nine-member Japanese boy group created by HYBE Labels Japan through the reality survival show '&AUDITION - The Howling -' The group made its ...",
-      "names": {
-        "stage": "&TEAM",
-        "korean": "앤팀"
-      },
-      "active": true,
-      "status": "active",
-      "type": "co-ed",
-      "memberCount": {
-        "current": 0,
-        "peak": 0
-      },
-      "company": {
-        "current": "HYBE Labels",
-        "history": [
-          {
-            "name": "HYBE Labels"
-          },
-          {
-            "name": "YX LABELS"
-          }
-        ]
-      },
-      "socialMedia": {
-        "twitter": "https://twitter.com/andTEAMofficial",
-        "instagram": "https://www.instagram.com/andteam_official/",
-        "youtube": "https://www.youtube.com/channel/UCHD1jo5RhijLfx5-0Ehe_cg",
-        "tiktok": "https://www.tiktok.com/@andteam_official",
-        "spotify": "https://open.spotify.com/intl-de/artist/2xfxRiKxoHl5tI0MKyvqV7?si=khIaGs0RTzmfrbhNK-SakQ",
-        "weibo": "https://www.weibo.com/andTEAM",
-        "website": "https://www.andteam-official.jp/"
-      }
-    },
-    {
-      "id": "173f3537-6261-4332-96dc-c58246e488d4",
+      "id": "7b562da3-0322-4943-859c-403b61c3b929",
       "profileUrl": "https://kpopping.com/profiles/group/1-N",
       "imageUrl": "https://kpopping.com/documents/67/1/social-widget/1-N-fullPicture.webp?v=9d5c0",
-      "description": "1/N is a South Korean rock band under Sugar Records. It consists of Hoon, Sungkyu, Myoungsoo, Soonwoo, and Yehyun. They made their official debut on Jun...",
       "names": {
         "stage": "1/N",
-        "korean": "엔분의일"
+        "korean": "엔분의일",
+        "japanese": "円分の日",
+        "chinese": null,
+        "english": null
       },
-      "active": true,
-      "status": "active",
-      "type": "co-ed",
-      "memberCount": {
-        "current": 0,
-        "peak": 0
+      "type": "group",
+      "active": false,
+      "status": "disbanded",
+      "company": {
+        "current": null
       },
       "socialMedia": {
         "facebook": "https://www.facebook.com/1NOVRN/",
         "instagram": "https://www.instagram.com/one_over_n/",
         "youtube": "https://www.youtube.com/channel/UCMudgdpmUlBSFIRJx4XwucQ",
-        "spotify": "https://open.spotify.com/artist/1yp1T52wMzX44QbkqRZm7J?si=c-78cI5GQLKm3aEg19WhDQ&utm_source=copy-link"
+        "spotify": "https://open.spotify.com/artist/1yp1T52wMzX44QbkqRZm7J"
+      }
+    },
+    {
+      "id": "ec7ec5ae-aa8c-4f70-a0cf-37c2823741a4",
+      "profileUrl": "https://kpopping.com/profiles/group/Lucente",
+      "imageUrl": "https://kpopping.com/documents/88/4/social-widget/Lucente-fullPicture.webp?v=8cb34",
+      "names": {
+        "stage": "Lucente",
+        "korean": "루첸트",
+        "japanese": "ルチェンテ",
+        "chinese": null,
+        "english": null
+      },
+      "type": "group",
+      "active": false,
+      "status": "disbanded",
+      "company": {
+        "current": "NOGA Entertainment",
+        "history": [
+          {
+            "name": "NOGA Entertainment",
+            "period": {
+              "start": "2016-01-01"
+            }
+          }
+        ]
+      },
+      "socialMedia": {
+        "twitter": "https://twitter.com/LUCENTE_NOGA",
+        "instagram": "https://www.instagram.com/lucente_noga/",
+        "fancafe": "http://cafe.daum.net/lucente"
       }
     }
   ],
   "coedGroups": [
     {
-      "id": "9d38f1e2-f7a8-4b1a-b4bd-2b9624fef16c",
-      "profileUrl": "https://kpopping.com/profiles/group/5but",
-      "imageUrl": "https://kpopping.com/documents/34/0/social-widget/5but-fullPicture.webp?v=bb735",
-      "description": "5but is a South Korean co-ed band currently consisting of four members: Go Seungyoon, Lee Hyesu, Jeon Jinhyung, and Lee Yangeop. They debuted on Februar...",
+      "id": "fa2dfc9b-4432-4ced-bbf6-739914a97a67",
+      "profileUrl": "https://kpopping.com/profiles/group/CHECKMATE",
+      "imageUrl": "https://kpopping.com/documents/5a/1/social-widget/CHECKMATE-fullPicture(1).webp?v=218dd",
       "names": {
-        "stage": "5but",
-        "korean": "오붓"
+        "stage": "CHECKMATE",
+        "korean": "체크메이트",
+        "japanese": "スリ",
+        "chinese": null,
+        "english": null
       },
-      "active": true,
-      "status": "active",
-      "type": "co-ed",
-      "memberCount": {
-        "current": 0,
-        "peak": 0
+      "type": "group",
+      "active": false,
+      "status": "disbanded",
+      "company": {
+        "current": null
       },
       "socialMedia": {
-        "facebook": "https://www.facebook.com/5butofficial-101862264809833/",
-        "instagram": "https://www.instagram.com/5but.official",
-        "youtube": "https://m.youtube.com/channel/UCdVqsppIDdgy2vaFmLCy0dA/featured",
-        "website": "https://soundcloud.com/5but"
+        "facebook": "https://www.facebook.com/GRACECHECKMATE",
+        "instagram": "https://www.instagram.com/checkmate_official__/",
+        "youtube": "https://www.youtube.com/channel/UCVhRAu56eIIAyJZ6MruM4-Q/videos",
+        "tiktok": "https://www.tiktok.com/@checkmate_official"
       }
     },
     {
-      "id": "85ecc047-1a62-4435-83fa-f987bc1a854d",
-      "profileUrl": "https://kpopping.com/profiles/group/8eight",
-      "imageUrl": "https://kpopping.com/documents/11/0/social-widget/8eight-fullPicture(1).webp?v=9d5c0",
-      "description": "8eight was a three-member co-ed group under BIGHIT MUSIC and Source Music consistent of Lee Hyun, Joo Hee and BaekChan. They debuted on August 25, 2007 ...",
+      "id": "b8fd194e-6220-4be7-8fa0-ee844afb1607",
+      "profileUrl": "https://kpopping.com/profiles/group/THETHE",
+      "imageUrl": "https://kpopping.com/documents/69/3/social-widget/THETHE-fullPicture.webp?v=37206",
       "names": {
-        "stage": "8eight",
-        "korean": "에이트"
+        "stage": "THETHE",
+        "korean": "더더",
+        "japanese": "ドド",
+        "chinese": null,
+        "english": null
       },
-      "active": true,
-      "status": "active",
-      "type": "co-ed",
-      "memberCount": {
-        "current": 0,
-        "peak": 0
-      },
+      "type": "group",
+      "active": false,
+      "status": "disbanded",
       "company": {
-        "current": "Source Music",
+        "current": "WOMANANDMANS",
         "history": [
           {
-            "name": "Source Music"
-          },
-          {
-            "name": "BIGHIT MUSIC"
+            "name": "WOMANANDMANS",
+            "period": {
+              "start": "2006-01-01"
+            }
           }
         ]
+      },
+      "socialMedia": {
+        "facebook": "https://www.facebook.com/thethekorea",
+        "youtube": "https://www.youtube.com/@TheThePlus",
+        "spotify": "https://open.spotify.com/artist/4sGGVlJgiblZf6Ae9NT49s",
+        "website": "https://www.womanandmans.com/thethe"
       }
     },
     {
-      "id": "7b3eedea-033d-40e5-986c-5ce3f3040c23",
-      "profileUrl": "https://kpopping.com/profiles/group/Adios-Audio",
-      "imageUrl": "https://kpopping.com/documents/f7/3/social-widget/Adios-Audio-fullPicture.webp?v=b8fd6",
-      "description": "Adios Audio is a Korean rock band consisting of 3 members, Maho, Hojae Lim, Seung Joon Kim. The band debuted on November 23, 2016 with their debut album...",
+      "id": "3edcbf25-3f8c-45b7-a91a-e64ab4073b1d",
+      "profileUrl": "https://kpopping.com/profiles/group/ChoCo1-2",
+      "imageUrl": "https://kpopping.com/documents/78/3/social-widget/ChoCo-fullPicture.webp?v=f35c1",
       "names": {
-        "stage": "Adios Audio",
-        "korean": "아디오스 오디오"
+        "stage": "ChoCo1&2",
+        "korean": "초코1&2",
+        "japanese": "ティージェイ",
+        "chinese": null,
+        "english": null
       },
-      "active": true,
-      "status": "active",
-      "type": "co-ed",
-      "memberCount": {
-        "current": 0,
-        "peak": 0
+      "type": "group",
+      "active": false,
+      "status": "disbanded",
+      "company": {
+        "current": "ChoCo Entertainment",
+        "history": [
+          {
+            "name": "ChoCo Entertainment",
+            "period": {
+              "start": "2019-01-01"
+            }
+          }
+        ]
       },
       "socialMedia": {
-        "facebook": "https://www.facebook.com/adiosaudio",
-        "twitter": "https://x.com/adios_audio",
-        "instagram": "https://www.instagram.com/adios_audio_official/",
-        "youtube": "https://www.youtube.com/c/AdiosAudioOfficial",
-        "spotify": "https://open.spotify.com/artist/5A5DAxEQJ5F7HA4wVVHV8a?si=60oGrp9LRrW6lInmlGQbHg",
-        "website": "https://blog.naver.com/adiosaudio"
+        "twitter": "https://twitter.com/official_choco_",
+        "instagram": "https://www.instagram.com/official_choco__/",
+        "youtube": "https://youtube.com/@official_choco_",
+        "tiktok": "https://www.tiktok.com/@official_choco_",
+        "website": "https://choco.onl/"
       }
     }
   ]

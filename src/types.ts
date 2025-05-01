@@ -1,69 +1,116 @@
 // Types for K-pop idols and groups
 
 //---------------------------
+// Enums for better type safety
+//---------------------------
+
+export enum IdolStatus {
+	Active = 'active',
+	Inactive = 'inactive',
+	Hiatus = 'hiatus'
+}
+
+export enum GroupStatus {
+	Active = 'active',
+	Disbanded = 'disbanded',
+	Hiatus = 'hiatus',
+	Inactive = 'inactive',
+	SubUnit = 'sub-unit'
+}
+
+export enum BloodType {
+	A = 'A',
+	B = 'B',
+	O = 'O',
+	AB = 'AB',
+	APlus = 'A+',
+	AMinus = 'A-',
+	BPlus = 'B+',
+	BMinus = 'B-',
+	OPlus = 'O+',
+	OMinus = 'O-',
+	ABPlus = 'AB+',
+	ABMinus = 'AB-'
+}
+
+export enum Position {
+	Leader = 'Leader',
+	MainVocalist = 'Main Vocalist',
+	LeadVocalist = 'Lead Vocalist',
+	Vocalist = 'Vocalist',
+	MainRapper = 'Main Rapper',
+	LeadRapper = 'Lead Rapper',
+	Rapper = 'Rapper',
+	MainDancer = 'Main Dancer',
+	LeadDancer = 'Lead Dancer',
+	Dancer = 'Dancer',
+	Visual = 'Visual',
+	Center = 'Center',
+	FaceOfGroup = 'Face of the Group',
+	Maknae = 'Maknae'
+}
+
+//---------------------------
 // Shared base types
 //---------------------------
 
 export interface CoreProfile {
 	id: string;
 	profileUrl: string;
-	imageUrl?: string;
-	description?: string;
-
+	imageUrl: string | null;
 	names: {
-		stage: string; // Main display name
-		korean: string | null; // Changed from optional to nullable
-		birth?: {
-			latin: string | null; // Changed from optional to nullable
-			hangeul: string | null; // Changed from optional to nullable
+		stage: string;
+		korean: string | null;
+		japanese: string | null;
+		chinese: string | null;
+		english: string | null;
+		birth: {
+			latin: string | null;
+			hangeul: string | null;
+			japanese: string | null;
+			chinese: string | null;
 		};
-		aliases: string[]; // Changed from optional to required empty array
 	};
-
 	active: boolean;
-	status: 'active' | 'inactive' | 'hiatus';
-
+	status: 'active' | 'inactive' | 'disbanded' | 'hiatus';
 	company: {
-		current: string | null; // Changed from optional to nullable
+		current: string | null;
 		history: Array<{
 			name: string;
 			period: {
 				start: string;
-				end: string | null;
+				end?: string;
 			} | null;
 		}>;
 	} | null;
-
-	socialMedia: {
-		instagram?: string | null;
-		twitter?: string | null;
-		facebook?: string | null;
-		youtube?: string | null;
-		spotify?: string | null;
-		weibo?: string | null;
-		tiktok?: string | null;
-		vlive?: string | null;
-		fancafe?: string | null;
-		website?: string | null;
-	} | null;
-
-	facts?: string[];
+	socialMedia: SocialMedia;
+	facts: Fact[];
 }
 
 //---------------------------
-// Idol-specific types
+// Additional types
 //---------------------------
 
-export type BloodType = 'A' | 'B' | 'O' | 'AB' | 'A+' | 'A-' | 'B+' | 'B-' | 'O+' | 'O-' | 'AB+' | 'AB-';
-export type IdolPosition = 'Leader' | 'Main Vocalist' | 'Lead Vocalist' | 'Vocalist' | 'Main Rapper' | 'Lead Rapper' | 'Rapper' | 'Main Dancer' | 'Lead Dancer' | 'Dancer' | 'Visual' | 'Center' | 'Face of the Group' | 'Maknae';
+export interface Fact {
+	category?: 'personal' | 'career' | 'trivia' | 'pre-debut' | 'controversy';
+	content: string;
+	source?: string;
+	date?: string;
+}
 
 export interface PhysicalInfo {
-	height: number | null; // Changed from optional to nullable
-	weight: number | null; // Changed from optional to nullable
-	bloodType: BloodType | null; // Changed from optional to nullable
-	birthDate: string | null; // ISO format YYYY-MM-DD
-	zodiacSign: string | null;
-	mbti: string | null; // Stricter MBTI format validation
+	height?: number;
+	weight?: number;
+	bloodType?: BloodType;
+	birthDate?: string;
+	zodiacSign?: string;
+	mbti?: string;
+	measurements?: {
+		bust?: number;
+		waist?: number;
+		hips?: number;
+	};
+	dominantHand?: 'left' | 'right' | 'ambidextrous';
 }
 
 export interface PersonalInfo {
@@ -73,15 +120,27 @@ export interface PersonalInfo {
 		region?: string;
 		country?: string;
 	};
+	religion?: string;
 	education?: Array<{
 		school: string;
-		type?: string;
+		type?: 'elementary' | 'middle' | 'high school' | 'university' | 'college';
 		status?: 'graduated' | 'attending' | 'dropped out';
+		major?: string;
 		year?: string;
 	}>;
-	languages?: string[];
+	family?: Array<{
+		relation: string;
+		name?: string;
+		occupation?: string;
+		description?: string;
+	}>;
+	languages?: Array<{
+		language: string;
+		level?: 'native' | 'fluent' | 'intermediate' | 'basic';
+	}>;
 	hobbies?: string[];
 	specialties?: string[];
+	nicknames?: string[];
 }
 
 export interface CareerInfo {
@@ -91,95 +150,150 @@ export interface CareerInfo {
 		end?: string;
 	}>;
 	trainingPeriod?: {
+		duration?: string;
 		start?: string;
 		end?: string;
-		duration?: string;
+		company?: string;
 	};
+	predebut?: {
+		company?: string;
+		group?: string;
+		period?: {
+			start: string;
+			end: string;
+		};
+	}[];
 	showAppearances?: Array<{
 		name: string;
-		type?: 'survival' | 'variety' | 'drama' | 'musical';
+		type?: 'survival' | 'variety' | 'drama' | 'musical' | 'radio' | 'web';
 		role?: string;
 		year?: string;
+		episode?: string;
+		result?: string;
+	}>;
+	awards?: Array<{
+		name: string;
+		category?: string;
+		year: string;
+		result?: 'won' | 'nominated';
 	}>;
 }
 
-export interface GroupHistory {
-	groupName: string;
-	position?: IdolPosition[];
-	status: 'current' | 'former';
-	period?: {
-		start: string;
-		end?: string;
-	};
-}
+//---------------------------
+// Idol-specific types
+//---------------------------
 
 export interface Idol extends CoreProfile {
-	physicalInfo?: PhysicalInfo;
-	personalInfo?: PersonalInfo;
-	careerInfo?: CareerInfo;
-	groups?: GroupHistory[];
+	physicalInfo?: {
+		height?: number;
+		weight?: number;
+		bloodType?: 'A' | 'B' | 'AB' | 'O';
+		mbti?: string;
+		birthDate?: string;
+		zodiacSign?: string;
+	};
+	personalInfo?: {
+		nationality?: string;
+		birthplace?: {
+			city: string;
+			region?: string;
+			country: string;
+		};
+		education?: Array<{
+			school: string;
+			type?: 'university' | 'high school' | 'middle' | 'elementary';
+			status?: 'graduated' | 'attending' | 'dropped out';
+		}>;
+		languages?: Array<{
+			language: string;
+			level?: 'native' | 'fluent' | 'intermediate' | 'basic';
+		}>;
+		hobbies?: string[];
+		specialties?: string[];
+	};
+	careerInfo?: {
+		debutDate?: string;
+		trainingPeriod?: {
+			duration?: string;
+			start?: string;
+			end?: string;
+		};
+		showAppearances?: Array<{
+			name: string;
+			year?: string;
+			type?: 'survival' | 'variety' | 'drama' | 'musical' | 'radio' | 'web';
+		}>;
+	};
+	groups?: Array<{
+		name: string;
+		status: 'current' | 'former';
+		period?: {
+			start: string;
+			end?: string;
+		};
+		position?: Position[];
+	}>;
 }
 
 //---------------------------
 // Group-specific types
 //---------------------------
 
-export type GroupStatus = 'active' | 'disbanded' | 'hiatus' | 'inactive' | 'sub-unit';
-export type GroupType = 'boy' | 'girl' | 'coed';
-
-export interface GroupMember {
-	name: string;
-	profileUrl?: string;
-	position?: IdolPosition[];
-	period?: {
-		start: string;
-		end?: string;
-	};
-}
-
-export interface Fandom {
-	name: string | null;
-	color: string | null; // Hex color code
-	lightstick: {
-		name: string | null;
-		imageUrl: string | null;
-		description: string | null;
-		version: string | null; // Added version number tracking
-		releaseDate?: string | null; // ISO format YYYY-MM-DD
-	} | null;
-	fanCafe?: {
-		name: string | null;
-		url: string | null;
-	} | null;
-}
-
-export interface GroupInfo {
-	debutDate?: string;
-	debutSong?: string;
-	activeYears?: Array<{
-		start: string;
-		end?: string;
-	}>;
-	generation?: number;
-	subunits?: Array<{
-		name: string;
-		members: string[];
-		status: 'active' | 'disbanded';
-	}>;
-}
-
 export interface Group extends CoreProfile {
-	type: GroupType;
+	type: 'boy' | 'girl' | 'coed';
 	memberCount: {
 		current: number;
 		peak: number;
 	};
 	memberHistory: {
-		currentMembers: GroupMember[];
-		formerMembers?: GroupMember[];
+		currentMembers: Array<{
+			name: string;
+			profileUrl?: string;
+			position?: Position[];
+			period?: {
+				start: string;
+				end?: string;
+			};
+		}>;
+		formerMembers?: Array<{
+			name: string;
+			profileUrl?: string;
+			position?: Position[];
+			period?: {
+				start: string;
+				end?: string;
+			};
+		}>;
 	};
-	groupInfo?: GroupInfo;
-	fandom?: Fandom;
+	groupInfo?: {
+		debutDate?: string;
+		debutSong?: string;
+		activeYears?: Array<{
+			start: string;
+			end?: string;
+		}>;
+		generation?: number;
+		subunits?: Array<{
+			name: string;
+			members: string[];
+			status: 'active' | 'disbanded';
+		}>;
+	};
+	fandom?: {
+		name: string | null;
+		color: string | null; // Hex color code
+		lightstick: {
+			name: string | null;
+			imageUrl: string | null;
+			description: string | null;
+			version: string | null; // Added version number tracking
+			releaseDate?: string | null; // ISO format YYYY-MM-DD
+		} | null;
+		fanCafe?: {
+			name: string | null;
+			url: string | null;
+		} | null;
+	};
 }
 
 //---------------------------
