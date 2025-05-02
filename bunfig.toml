@@ -1,2 +1,0 @@
-[install.scopes]
-"@melon" = { token = "${GITHUB_TOKEN}", registry = "https://npm.pkg.github.com" }
