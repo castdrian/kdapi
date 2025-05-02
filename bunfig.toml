@@ -1,0 +1,2 @@
+[install.scopes]
+"@castdrian" = { token = "${GITHUB_TOKEN}", registry = "https://npm.pkg.github.com" }

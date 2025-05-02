@@ -1,4 +1,4 @@
-# kdapi
+# @castdrian/kdapi
 
 K-pop Data API and Dataset Generator
 
@@ -14,7 +14,7 @@ A TypeScript library that scrapes K-pop idol and group information from online s
 ## Installation
 
 ```bash
-bun add kdapi
+bun add @castdrian/kdapi
 ```
 
 ## Usage

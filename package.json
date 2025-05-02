@@ -1,5 +1,5 @@
 {
-  "name": "kdapi",
+  "name": "@castdrian/kdapi",
   "module": "src/index.ts",
   "type": "module",
   "description": "Korean idol and group profiles dataset generator",
@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/melon/kdapi.git"
+    "url": "git+https://github.com/castdrian/kdapi.git"
   },
   "files": [
     "src",
