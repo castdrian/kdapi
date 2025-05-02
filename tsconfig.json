@@ -11,7 +11,10 @@
 		"noUncheckedIndexedAccess": true,
 		"baseUrl": ".",
 		"paths": {
-			"@/*": [
+			"@root/*": [
+				"./*"
+			],
+			"@src/*": [
 				"./src/*"
 			]
 		},

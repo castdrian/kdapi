@@ -4,10 +4,24 @@
   "type": "module",
   "description": "Korean idol and group profiles dataset generator",
   "version": "0.1.0",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/melon/kdapi.git"
+  },
+  "files": [
+    "src",
+    "data",
+    "*.json",
+    "*.toml"
+  ],
   "scripts": {
-    "scrape:debug": "bun src/cli.ts scrape -d -s 2 --delay 2000 --cache",
+    "scrape:debug": "bun src/cli.ts scrape -d -s 20 --delay 2000 --cache",
     "scrape:prod": "bun src/cli.ts scrape --delay 4000 --batch-size 5 --cache",
-    "scrape:force": "bun src/cli.ts scrape --delay 4000 --batch-size 5 --force"
+    "scrape:force": "bun src/cli.ts scrape --delay 4000 --batch-size 5 --force",
+    "build": "bun build ./src/index.ts --outdir ./dist --target node"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -16,9 +30,11 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@biomejs/biome": "^1.9.4",
     "cheerio": "^1.0.0",
     "commander": "^13.1.0",
     "date-fns": "^4.1.0",
+    "fuse.js": "^7.1.0",
     "undici": "^7.8.0",
     "uuid": "^11.1.0",
     "zod": "^3.22.4"

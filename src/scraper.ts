@@ -1,43 +1,46 @@
-import { fetch } from 'undici';
-import * as cheerio from 'cheerio';
-import { v4 as uuidv4 } from 'uuid';
-import * as fs from 'node:fs';
-import * as path from 'path';
-import { CacheManager } from './cache';
-import type {
-	GroupMember, DataSet,
-	IdolPosition,
-	SocialMedia,
-	CoreProfile,
-	Group,
-	Idol,
-	Fandom,
-	Fact
-} from './types';
+import { fetch } from "undici";
+import * as cheerio from "cheerio";
+import { v4 as uuidv4 } from "uuid";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { CacheManager } from "@src/cache";
+import {
+	type DataSet,
+	Position,
+	type SocialMedia,
+	type CoreProfile,
+	type Group,
+	type Idol,
+	IdolStatus,
+	GroupStatus,
+	type BloodType,
+	type GroupMember,
+	GroupType,
+} from "@src/types";
 
-export {
-	runDebugMode,
-	runProductionMode,
-	scrapeProfiles
-};
-
-const reset = '\x1b[0m';
+export { runDebugMode, runProductionMode, scrapeProfiles };
 
 const PATHS = {
-	DATA_DIR: path.join(process.cwd(), 'data'),
-	get GROUPS_FILE() { return path.join(this.DATA_DIR, 'groups.json'); },
-	get IDOLS_FILE() { return path.join(this.DATA_DIR, 'idols.json'); },
-	get METADATA_FILE() { return path.join(this.DATA_DIR, 'metadata.json'); },
+	DATA_DIR: path.join(process.cwd(), "data"),
+	get GROUPS_FILE() {
+		return path.join(this.DATA_DIR, "groups.json");
+	},
+	get IDOLS_FILE() {
+		return path.join(this.DATA_DIR, "idols.json");
+	},
+	get METADATA_FILE() {
+		return path.join(this.DATA_DIR, "metadata.json");
+	},
 } as const;
 
 // Base URL and endpoints
-const BASE_URL = 'https://kpopping.com';
+const BASE_URL = "https://kpopping.com";
 const ENDPOINTS = {
-	femaleIdols: '/profiles/the-idols/women',
-	maleIdols: '/profiles/the-idols/men',
-	girlGroups: '/profiles/the-groups/women',
-	boyGroups: '/profiles/the-groups/men',
-	coedGroups: '/profiles/the-groups/coed'
+	femaleIdols: "/profiles/the-idols/women",
+	maleIdols: "/profiles/the-idols/men",
+	girlGroups: "/profiles/the-groups/women",
+	boyGroups: "/profiles/the-groups/men",
+	coedGroups: "/profiles/the-groups/coed",
 } as const;
 
 // Update CONFIG to include concurrentRequests
@@ -46,28 +49,31 @@ const CONFIG = {
 	retryAttempts: 5, // Increased from 3
 	retryDelay: 2000, // Increased from 1000
 	requestTimeout: 30000, // Increased from 20000
-	rateLimitDelay: 2000, // Increased from 1000
-	maxRequestsPerMinute: 30, // Reduced from 60
+	rateLimitDelay: 0, // No delay needed when using cache
+	maxRequestsPerMinute: 1000, // Higher limit for cached content
 	maxConcurrent: 5,
 	concurrentRequests: 5,
 	debugSampleSize: 5,
 	batchLogInterval: 10, // Log batch progress every N items
-	saveInterval: 100,    // Save progress every N items
-	userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+	saveInterval: 100, // Save progress every N items
+	userAgent:
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
 	headers: {
-		'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-		'Accept-Language': 'en-US,en;q=0.9',
-		'Accept-Encoding': 'gzip, deflate, br',
-		'Cache-Control': 'no-cache',
-		'Sec-Ch-Ua': '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
-		'Sec-Ch-Ua-Mobile': '?0',
-		'Sec-Ch-Ua-Platform': '"macOS"',
-		'Sec-Fetch-Dest': 'document',
-		'Sec-Fetch-Mode': 'navigate',
-		'Sec-Fetch-Site': 'none',
-		'Sec-Fetch-User': '?1',
-		'Upgrade-Insecure-Requests': '1'
-	}
+		Accept:
+			"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+		"Accept-Language": "en-US,en;q=0.9",
+		"Accept-Encoding": "gzip, deflate, br",
+		"Cache-Control": "no-cache",
+		"Sec-Ch-Ua":
+			'"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
+		"Sec-Ch-Ua-Mobile": "?0",
+		"Sec-Ch-Ua-Platform": '"macOS"',
+		"Sec-Fetch-Dest": "document",
+		"Sec-Fetch-Mode": "navigate",
+		"Sec-Fetch-Site": "none",
+		"Sec-Fetch-User": "?1",
+		"Upgrade-Insecure-Requests": "1",
+	},
 } as const;
 
 // Add logging utility after CONFIG
@@ -75,11 +81,14 @@ const logger = {
 	info: (msg: string) => console.log(`\x1b[36m[INFO]\x1b[0m ${msg}`),
 	warn: (msg: string) => console.log(`\x1b[33m[WARN]\x1b[0m ${msg}`),
 	error: (msg: string) => console.log(`\x1b[31m[ERROR]\x1b[0m ${msg}`),
-	success: (msg: string) => console.log(`\x1b[32m[SUCCESS]\x1b[0m ${msg}`)
+	success: (msg: string) => console.log(`\x1b[32m[SUCCESS]\x1b[0m ${msg}`),
 };
 
 // Track failed requests to implement backoff strategy
-const failedRequests = new Map<string, { count: number; lastAttempt: number }>();
+const failedRequests = new Map<
+	string,
+	{ count: number; lastAttempt: number }
+>();
 
 const cache = new CacheManager();
 
@@ -93,8 +102,8 @@ async function shouldRetry(url: string): Promise<boolean> {
 	const now = Date.now();
 	const timeSinceLastAttempt = now - failed.lastAttempt;
 	const backoffTime = Math.min(
-		CONFIG.retryDelay * Math.pow(1.5, failed.count), // Changed from 2 to 1.5
-		30000 // Max 30s delay instead of 60s
+		CONFIG.retryDelay * 1.5 ** failed.count, // Changed from 2 to 1.5
+		30000, // Max 30s delay instead of 60s
 	);
 
 	return timeSinceLastAttempt >= backoffTime;
@@ -104,68 +113,67 @@ function recordFailedRequest(url: string) {
 	const failed = failedRequests.get(url) || { count: 0, lastAttempt: 0 };
 	failedRequests.set(url, {
 		count: failed.count + 1,
-		lastAttempt: Date.now()
+		lastAttempt: Date.now(),
 	});
 }
 
 // Helper functions
 function delay(ms: number): Promise<void> {
-	return new Promise(resolve => setTimeout(resolve, ms));
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function cleanText(text: string): string {
-	return text.trim()
-		.replace(/\s+/g, ' ')
-		.replace(/[\u200B-\u200D\uFEFF]/g, '')
+	return text
+		.trim()
+		.replace(/\s+/g, " ")
+		.replace(/\u200B|\u200C|\u200D|\uFEFF/g, "")
 		.replace(/[""]/g, '"')
 		.replace(/['′]/g, "'");
 }
 
-function parsePositions(text: string): IdolPosition[] {
-	// Enhanced position mapping with common variations
-	const positionMap: Record<string, IdolPosition> = {
-		'leader': 'Leader',
-		'main vocal': 'Main Vocalist',
-		'main vocalist': 'Main Vocalist',
-		'lead vocal': 'Lead Vocalist',
-		'lead vocalist': 'Lead Vocalist',
-		'vocal': 'Vocalist',
-		'vocalist': 'Vocalist',
-		'main rap': 'Main Rapper',
-		'main rapper': 'Main Rapper',
-		'lead rap': 'Lead Rapper',
-		'lead rapper': 'Lead Rapper',
-		'rap': 'Rapper',
-		'rapper': 'Rapper',
-		'main dance': 'Main Dancer',
-		'main dancer': 'Main Dancer',
-		'lead dance': 'Lead Dancer',
-		'lead dancer': 'Lead Dancer',
-		'dance': 'Dancer',
-		'dancer': 'Dancer',
-		'visual': 'Visual',
-		'center': 'Center',
-		'face': 'Face of the Group',
-		'face of the group': 'Face of the Group',
-		'maknae': 'Maknae',
-		'youngest': 'Maknae'
+function parsePositions(text: string): Position[] {
+	const positionMap: Record<string, Position> = {
+		leader: Position.Leader,
+		"main vocal": Position.MainVocalist,
+		"main vocalist": Position.MainVocalist,
+		"lead vocal": Position.LeadVocalist,
+		"lead vocalist": Position.LeadVocalist,
+		vocal: Position.Vocalist,
+		vocalist: Position.Vocalist,
+		"main rap": Position.MainRapper,
+		"main rapper": Position.MainRapper,
+		"lead rap": Position.LeadRapper,
+		"lead rapper": Position.LeadRapper,
+		rap: Position.Rapper,
+		rapper: Position.Rapper,
+		"main dance": Position.MainDancer,
+		"main dancer": Position.MainDancer,
+		"lead dance": Position.LeadDancer,
+		"lead dancer": Position.LeadDancer,
+		dance: Position.Dancer,
+		dancer: Position.Dancer,
+		visual: Position.Visual,
+		center: Position.Center,
+		face: Position.FaceOfGroup,
+		"face of the group": Position.FaceOfGroup,
+		maknae: Position.Maknae,
+		youngest: Position.Maknae,
 	};
 
-	// Split on various delimiters and handle multiple positions
-	return text.toLowerCase()
+	return text
+		.toLowerCase()
 		.split(/[,/&、]/)
-		.map(p => {
-			const cleaned = p.trim()
-				.replace(/\([^)]*\)/g, '') // Remove parenthetical notes
-				.replace(/^(is|was)\s+/i, '') // Remove "is/was" prefixes
-				.replace(/\s+position$/i, ''); // Remove "position" suffix
+		.map((p) => {
+			const cleaned = p
+				.trim()
+				.replace(/\([^)]*\)/g, "")
+				.replace(/^(is|was)\s+/i, "")
+				.replace(/\s+position$/i, "");
 
-			// Try exact match first
 			if (positionMap[cleaned]) {
 				return positionMap[cleaned];
 			}
 
-			// Try partial matches
 			for (const [key, value] of Object.entries(positionMap)) {
 				if (cleaned.includes(key)) {
 					return value;
@@ -173,7 +181,7 @@ function parsePositions(text: string): IdolPosition[] {
 			}
 			return null;
 		})
-		.filter((p): p is IdolPosition => p !== null);
+		.filter((p): p is Position => p !== null);
 }
 
 // Rate limiting token bucket
@@ -187,7 +195,7 @@ const rateLimiter = {
 		const timePassed = now - this.lastRefill;
 		this.tokens = Math.min(
 			CONFIG.maxRequestsPerMinute,
-			this.tokens + timePassed * this.refillRate
+			this.tokens + timePassed * this.refillRate,
 		);
 		this.lastRefill = now;
 
@@ -198,7 +206,7 @@ const rateLimiter = {
 		}
 
 		this.tokens -= 1;
-	}
+	},
 };
 
 async function fetchWithRetry(url: string): Promise<string> {
@@ -209,7 +217,7 @@ async function fetchWithRetry(url: string): Promise<string> {
 		try {
 			if (attempt > 0) {
 				logger.warn(`Retrying ${url} (attempt ${attempt + 1}/${maxAttempts})`);
-				const backoff = Math.min(CONFIG.retryDelay * Math.pow(1.5, attempt), 30000);
+				const backoff = Math.min(CONFIG.retryDelay * 1.5 ** attempt, 30000);
 				await delay(backoff);
 			}
 
@@ -217,28 +225,33 @@ async function fetchWithRetry(url: string): Promise<string> {
 			logger.info(`Fetching ${url}`);
 
 			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), CONFIG.requestTimeout);
+			const timeoutId = setTimeout(
+				() => controller.abort(),
+				CONFIG.requestTimeout,
+			);
 
 			const response = await fetch(url, {
 				headers: {
 					...CONFIG.headers,
-					'User-Agent': CONFIG.userAgent,
-					'Host': new URL(url).hostname,
-					'Referer': 'https://www.google.com/',
-					'Connection': 'keep-alive',
-					'DNT': '1'
+					"User-Agent": CONFIG.userAgent,
+					Host: new URL(url).hostname,
+					Referer: "https://www.google.com/",
+					Connection: "keep-alive",
+					DNT: "1",
 				},
-				signal: controller.signal
+				signal: controller.signal,
 			});
 
 			clearTimeout(timeoutId);
 
 			if (response.status === 429) {
 				attempt++;
-				const retryAfter = response.headers.get('Retry-After');
-				const delay = retryAfter ? parseInt(retryAfter) * 1000 : CONFIG.retryDelay * Math.pow(1.5, attempt);
+				const retryAfter = response.headers.get("Retry-After");
+				const delay = retryAfter
+					? Number.parseInt(retryAfter) * 1000
+					: CONFIG.retryDelay * 1.5 ** attempt;
 				logger.warn(`Rate limited, waiting ${delay}ms`);
-				await new Promise(resolve => setTimeout(resolve, delay));
+				await new Promise((resolve) => setTimeout(resolve, delay));
 				continue;
 			}
 
@@ -247,17 +260,18 @@ async function fetchWithRetry(url: string): Promise<string> {
 			}
 
 			const text = await response.text();
-			if (text.length < 500 || text.includes('Too Many Requests')) {
-				throw new Error('Invalid response received');
+			if (text.length < 500 || text.includes("Too Many Requests")) {
+				throw new Error("Invalid response received");
 			}
 
 			logger.success(`Successfully fetched ${url}`);
 			failedRequests.delete(url);
 			return text;
-
 		} catch (error) {
 			attempt++;
-			logger.error(`Failed to fetch ${url}: ${error.message}`);
+			logger.error(
+				`Failed to fetch ${url}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 
 			if (attempt >= maxAttempts) {
 				logger.error(`Max retry attempts (${maxAttempts}) reached for ${url}`);
@@ -266,24 +280,22 @@ async function fetchWithRetry(url: string): Promise<string> {
 		}
 	}
 
-	throw new Error('Max retry attempts reached');
+	throw new Error("Max retry attempts reached");
 }
 
 async function parseProfileWithCache(
 	url: string,
-	type: 'idol' | 'group',
-	forceRefresh = false
+	type: "idol" | "group",
+	forceRefresh = false,
 ): Promise<string> {
-	// Check cache first unless force refresh
 	if (!forceRefresh) {
 		const cached = await cache.get(type, url);
 		if (cached) {
-			logger.info(`Cache hit for ${url}`);
-			return cached;
+			return cached; // Return cached content immediately without delay
 		}
 	}
 
-	// Fetch and cache if needed
+	// Only apply delays when actually fetching
 	logger.info(`Cache miss for ${url}, fetching...`);
 	const html = await fetchWithRetry(url);
 	await cache.set(type, url, html);
@@ -301,65 +313,79 @@ async function saveDataset(dataset: DataSet): Promise<void> {
 		const groupsData = {
 			girlGroups: dataset.girlGroups,
 			boyGroups: dataset.boyGroups,
-			coedGroups: dataset.coedGroups
+			coedGroups: dataset.coedGroups,
 		};
 		fs.writeFileSync(PATHS.GROUPS_FILE, JSON.stringify(groupsData, null, 2));
-		logger.success('Saved groups data');
+		logger.success("Saved groups data");
 
 		// Save idols data
 		const idolsData = {
 			femaleIdols: dataset.femaleIdols,
-			maleIdols: dataset.maleIdols
+			maleIdols: dataset.maleIdols,
 		};
 		fs.writeFileSync(PATHS.IDOLS_FILE, JSON.stringify(idolsData, null, 2));
-		logger.success('Saved idols data');
+		logger.success("Saved idols data");
 
 		// Generate and save metadata
 		const metadata = {
 			lastUpdated: new Date().toISOString(),
-			version: '0.1.0',
+			version: "0.1.0",
 			coverage: {
-				startDate: dataset.femaleIdols.concat(dataset.maleIdols)
+				startDate: dataset.femaleIdols
+					.concat(dataset.maleIdols)
 					.reduce((earliest, idol) => {
 						const debutDate = idol.careerInfo?.debutDate;
-						return debutDate && (!earliest || debutDate < earliest) ? debutDate : earliest;
-					}, ''),
-				endDate: new Date().toISOString().split('T')[0]
+						return debutDate && (!earliest || debutDate < earliest)
+							? debutDate
+							: earliest;
+					}, ""),
+				endDate: new Date().toISOString().split("T")[0],
 			},
 			stats: {
 				groups: {
-					total: dataset.girlGroups.length + dataset.boyGroups.length + dataset.coedGroups.length,
+					total:
+						dataset.girlGroups.length +
+						dataset.boyGroups.length +
+						dataset.coedGroups.length,
 					active: {
-						girl: dataset.girlGroups.filter(g => g.active).length,
-						boy: dataset.boyGroups.filter(g => g.active).length,
-						coed: dataset.coedGroups.filter(g => g.active).length
+						girl: dataset.girlGroups.filter((g) => g.active).length,
+						boy: dataset.boyGroups.filter((g) => g.active).length,
+						coed: dataset.coedGroups.filter((g) => g.active).length,
 					},
 					disbanded: {
-						girl: dataset.girlGroups.filter(g => g.status === 'disbanded').length,
-						boy: dataset.boyGroups.filter(g => g.status === 'disbanded').length,
-						coed: dataset.coedGroups.filter(g => g.status === 'disbanded').length
-					}
+						girl: dataset.girlGroups.filter((g) => g.status === "inactive")
+							.length,
+						boy: dataset.boyGroups.filter((g) => g.status === "inactive")
+							.length,
+						coed: dataset.coedGroups.filter((g) => g.status === "inactive")
+							.length,
+					},
 				},
 				idols: {
 					total: dataset.femaleIdols.length + dataset.maleIdols.length,
 					active: {
-						female: dataset.femaleIdols.filter(i => i.active).length,
-						male: dataset.maleIdols.filter(i => i.active).length
+						female: dataset.femaleIdols.filter((i) => i.active).length,
+						male: dataset.maleIdols.filter((i) => i.active).length,
 					},
 					inactive: {
-						female: dataset.femaleIdols.filter(i => !i.active).length,
-						male: dataset.maleIdols.filter(i => !i.active).length
-					}
+						female: dataset.femaleIdols.filter((i) => !i.active).length,
+						male: dataset.maleIdols.filter((i) => !i.active).length,
+					},
 				},
-				total: (dataset.femaleIdols.length + dataset.maleIdols.length +
-					dataset.girlGroups.length + dataset.boyGroups.length + dataset.coedGroups.length)
-			}
+				total:
+					dataset.femaleIdols.length +
+					dataset.maleIdols.length +
+					dataset.girlGroups.length +
+					dataset.boyGroups.length +
+					dataset.coedGroups.length,
+			},
 		};
 		fs.writeFileSync(PATHS.METADATA_FILE, JSON.stringify(metadata, null, 2));
-		logger.success('Saved metadata');
-
+		logger.success("Saved metadata");
 	} catch (error) {
-		logger.error(`Failed to save dataset: ${error.message}`);
+		logger.error(
+			`Failed to save dataset: ${error instanceof Error ? error.message : String(error)}`,
+		);
 		throw error;
 	}
 }
@@ -369,35 +395,38 @@ function extractProfileLinks($: cheerio.CheerioAPI): string[] {
 
 	// Find profile links with various selectors
 	$('a[href*="/profiles/"]').each((_, el) => {
-		const href = $(el).attr('href');
-		if (href && (href.includes('/idol/') || href.includes('/group/'))) {
-			links.add(href.startsWith('http') ? href : `${BASE_URL}${href}`);
+		const href = $(el).attr("href");
+		if (href && (href.includes("/idol/") || href.includes("/group/"))) {
+			links.add(href.startsWith("http") ? href : `${BASE_URL}${href}`);
 		}
 	});
 
-	return [...links].filter(url =>
-		!url.includes('/submission') &&
-		!url.includes('/sign-in')
+	return [...links].filter(
+		(url) => !url.includes("/submission") && !url.includes("/sign-in"),
 	);
 }
 
 function extractImageUrl($: cheerio.CheerioAPI): string | undefined {
 	// Try meta tags first
-	const ogImage = $('meta[property="og:image"]').attr('content');
-	if (ogImage?.includes('//')) return ogImage;
+	const ogImage = $('meta[property="og:image"]').attr("content");
+	if (ogImage?.includes("//")) return ogImage;
 
 	// Try profile-specific images
-	const profileImage = $('.profile-image img, .profile-pic img').first().attr('src');
-	if (profileImage?.includes('//')) return profileImage;
+	const profileImage = $(".profile-image img, .profile-pic img")
+		.first()
+		.attr("src");
+	if (profileImage?.includes("//")) return profileImage;
 
 	// Try any large images
-	const images = $('img[src*="documents"]').toArray()
-		.map(img => $(img).attr('src'))
-		.filter((src): src is string =>
-			!!src &&
-			!src.includes('favicon') &&
-			!src.includes('logo') &&
-			src.includes('//')
+	const images = $('img[src*="documents"]')
+		.toArray()
+		.map((img) => $(img).attr("src"))
+		.filter(
+			(src): src is string =>
+				!!src &&
+				!src.includes("favicon") &&
+				!src.includes("logo") &&
+				src.includes("//"),
 		);
 
 	return images[0];
@@ -406,134 +435,51 @@ function extractImageUrl($: cheerio.CheerioAPI): string | undefined {
 function extractSocialMediaLinks($: cheerio.CheerioAPI): SocialMedia {
 	const socialMedia: SocialMedia = {};
 
-	$('.socials a, .social-links a').each((_, el) => {
-		const href = $(el).attr('href');
-		if (!href) return;
+	for (const el of $(".socials a, .social-links a").toArray()) {
+		const href = $(el).attr("href");
+		if (!href) continue;
 
 		// Skip kpopping.com and irrelevant links
-		if (href.includes('kpopping.com') ||
-			href.includes('discord.gg') ||
-			href.includes('google.com')) return;
+		if (
+			href.includes("kpopping.com") ||
+			href.includes("discord.gg") ||
+			href.includes("google.com")
+		)
+			continue;
 
 		try {
 			const url = new URL(href);
 			const cleanUrl = url.origin + url.pathname; // Remove tracking params
 
-			if (url.hostname.includes('instagram.com')) socialMedia.instagram = cleanUrl;
-			else if (url.hostname.includes('twitter.com') || url.hostname.includes('x.com')) {
+			if (url.hostname.includes("instagram.com"))
+				socialMedia.instagram = cleanUrl;
+			else if (
+				url.hostname.includes("twitter.com") ||
+				url.hostname.includes("x.com")
+			) {
 				socialMedia.twitter = cleanUrl;
-			}
-			else if (url.hostname.includes('facebook.com') && !url.pathname.includes('KPopping-')) {
+			} else if (
+				url.hostname.includes("facebook.com") &&
+				!url.pathname.includes("KPopping-")
+			) {
 				socialMedia.facebook = cleanUrl;
-			}
-			else if (url.hostname.includes('youtube.com')) socialMedia.youtube = cleanUrl;
-			else if (url.hostname.includes('spotify.com')) socialMedia.spotify = cleanUrl;
-			else if (url.hostname.includes('weibo.com')) socialMedia.weibo = cleanUrl;
-			else if (url.hostname.includes('tiktok.com')) socialMedia.tiktok = cleanUrl;
-			else if (url.hostname.includes('vlive.tv')) socialMedia.vlive = cleanUrl;
-			else if (url.hostname.includes('cafe.daum.net')) socialMedia.fancafe = cleanUrl;
+			} else if (url.hostname.includes("youtube.com"))
+				socialMedia.youtube = cleanUrl;
+			else if (url.hostname.includes("spotify.com"))
+				socialMedia.spotify = cleanUrl;
+			else if (url.hostname.includes("weibo.com")) socialMedia.weibo = cleanUrl;
+			else if (url.hostname.includes("tiktok.com"))
+				socialMedia.tiktok = cleanUrl;
+			else if (url.hostname.includes("vlive.tv")) socialMedia.vlive = cleanUrl;
+			else if (url.hostname.includes("cafe.daum.net"))
+				socialMedia.fancafe = cleanUrl;
 			else socialMedia.website = cleanUrl;
 		} catch (e) {
 			// Invalid URL, skip
 		}
-	});
+	}
 
 	return socialMedia;
-}
-
-function extractFacts($: cheerio.CheerioAPI): Fact[] {
-	const facts: Fact[] = [];
-
-	// Look for structured facts sections
-	$('.facts li, .fun-facts li, .profile-facts li').each((_, el) => {
-		const $fact = $(el);
-		const content = cleanText($fact.text());
-
-		// Skip empty/invalid facts
-		if (!content || content.length < 10) return;
-
-		const fact: Fact = {
-			content,
-			category: categorizeFact(content)
-		};
-
-		// Try to extract date if present
-		const dateMatch = content.match(/\((\d{4}(?:-\d{2})?(?:-\d{2})?)\)/);
-		if (dateMatch) fact.date = normalizeDate(dateMatch[1]);
-
-		facts.push(fact);
-	});
-
-	// Extract facts from description paragraphs
-	$('.profile-content p, .biography p').each((_, el) => {
-		const text = cleanText($(el).text());
-		if (!text) return;
-
-		// Split into sentences and analyze each
-		text.split(/[.!?]\s+/).forEach(sentence => {
-			if (sentence.length < 10) return;
-
-			// Look for fact indicators
-			if (isFact(sentence)) {
-				facts.push({
-					content: sentence,
-					category: categorizeFact(sentence)
-				});
-			}
-		});
-	});
-
-	// Look for controversy/news sections
-	$('.news li, .controversies li').each((_, el) => {
-		const content = cleanText($(el).text());
-		if (!content) return;
-
-		facts.push({
-			content,
-			category: 'controversy',
-			date: extractDateFromText(content)
-		});
-	});
-
-	return facts;
-}
-
-function categorizeFact(content: string): Fact['category'] {
-	const lowerContent = content.toLowerCase();
-
-	// Personal facts
-	if (/family|sibling|parent|relative|born|grew up|childhood|personality|hobby|interest|favorite|likes|dislikes/.test(lowerContent)) {
-		return 'personal';
-	}
-
-	// Career facts
-	if (/debut|training|company|group|position|award|achievement|performance|promotion|concert|album|song|music/.test(lowerContent)) {
-		return 'career';
-	}
-
-	// Pre-debut facts
-	if (/trainee|audition|pre-debut|before debut|prior to debut|school|education/.test(lowerContent)) {
-		return 'pre-debut';
-	}
-
-	// Controversy facts
-	if (/scandal|controversy|issue|dispute|criticism|apologize|conflict|rumor/.test(lowerContent)) {
-		return 'controversy';
-	}
-
-	return 'trivia';
-}
-
-function isFact(text: string): boolean {
-	// Ignore navigation text, headers, etc.
-	if (text.length < 10 || /menu|click|page|loading|error|cookie|privacy|terms/i.test(text)) {
-		return false;
-	}
-
-	// Look for fact indicators
-	return /^(?:[\-•★☆]|(?:he|she|they|the group|in|on|during|after|before)\s)/i.test(text) ||
-		/(?:revealed|mentioned|stated|shared|confirmed|announced)/i.test(text) ||
-		/(?:because|when|while|after|before|during)\s/i.test(text);
 }
 
 function extractDateFromText(text: string): string | null {
@@ -548,7 +494,7 @@ function extractDateFromText(text: string): string | null {
 		// Year-month only
 		/(\d{4})[-.／](\d{1,2})/,
 		// Year only
-		/(\d{4})/
+		/(\d{4})/,
 	];
 
 	for (const pattern of patterns) {
@@ -556,10 +502,12 @@ function extractDateFromText(text: string): string | null {
 		if (match) {
 			const [_, year, month, day] = match;
 			if (day) {
-				return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+				return month && day
+					? `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+					: null;
 			}
 			if (month) {
-				return `${year}-${month.padStart(2, '0')}-01`;
+				return `${year}-${month.padStart(2, "0")}-01`;
 			}
 			return `${year}-01-01`;
 		}
@@ -568,254 +516,323 @@ function extractDateFromText(text: string): string | null {
 	return null;
 }
 
-function extractNames($: cheerio.CheerioAPI): CoreProfile['names'] {
-	const names = {
-		stage: '',
-		korean: null,
-		japanese: null,
-		chinese: null,
-		english: null,
-		birth: {
-			latin: null,
-			hangeul: null,
-			japanese: null,
-			chinese: null
-		}
+function extractCompanyInfo(
+	$: cheerio.CheerioAPI,
+): NonNullable<CoreProfile["company"]> {
+	const company: NonNullable<CoreProfile["company"]> = {
+		current: null,
+		history: [],
 	};
 
-	// Get stage name from h1
-	names.stage = $('h1').first().text().trim().split(/[(\n]/, 1)[0].trim();
-
-	// Extract native names properly
-	$('.native-name').each((_, el) => {
-		const $el = $(el);
-		const type = $el.find('dfn').text().toLowerCase();
-		const name = cleanText($el.text().replace(/^[^:]+:\s*/, ''));
-
-		if (!name || name === '-') return;
-
-		if (type.includes('korean')) names.korean = name;
-		else if (type.includes('japanese')) names.japanese = name;
-		else if (type.includes('chinese')) names.chinese = name;
-		else if (type.includes('birth')) {
-			if (type.includes('latin')) names.birth.latin = name;
-			if (type.includes('hangeul')) names.birth.hangeul = name;
-			if (type.includes('japanese')) names.birth.japanese = name;
-			if (type.includes('chinese')) names.birth.chinese = name;
+	// Get current company from data grid - clean up colons
+	const companyCell = $('.data-grid .equal:contains("Company:")');
+	if (companyCell.length) {
+		const currentCompany = companyCell
+			.next()
+			.text()
+			.trim()
+			.replace(/[:：]\s*$/, ""); // Remove trailing colons
+		if (currentCompany && currentCompany !== "-") {
+			company.current = currentCompany;
 		}
-	});
-
-	// Remove birth object if this is a group profile
-	if ($('#idol-associated-groups').length === 0) {
-		delete names.birth;
 	}
 
-	return cleanupUndefined(names);
-}
-
-function extractCompanyInfo($: cheerio.CheerioAPI): NonNullable<CoreProfile['company']> {
-	const company: NonNullable<CoreProfile['company']> = {
-		current: null,
-		history: []
-	};
-
-	// Get current company from company history/info section
-	$('#star-companies .cell, #company-info .cell').each((_, el) => {
+	// Extract company history with clean names
+	$("#star-companies .cell, #company-info .cell").each((_, el) => {
 		const $cell = $(el);
-		const name = $cell.find('.name a').text().trim();
-		const periodText = $cell.find('.value').text().trim();
+		const name = $cell
+			.find(".name")
+			.text()
+			.trim()
+			.replace(/[:：]\s*$/, ""); // Remove trailing colons
+		const periodText = $cell.find(".value").text().trim();
 
-		if (!name) return;
+		if (!name || name === "-") return;
 
 		const period = parsePeriod(periodText);
-		if (!period?.end) {
-			company.current = name;
-		}
-
 		if (period) {
+			company.history = company.history || [];
 			company.history.push({
 				name,
-				period
+				period,
 			});
+
+			// If no current company set and this period has no end date, use as current
+			if (!company.current && !period.end) {
+				company.current = name;
+			}
 		}
 	});
 
 	return cleanupUndefined(company);
 }
 
-async function extractGroupData($: cheerio.CheerioAPI, url: string): Promise<Group> {
+async function extractGroupData(
+	$: cheerio.CheerioAPI,
+	url: string,
+	gender: "female" | "male" | "coed",
+): Promise<Group> {
 	const group: Group = {
 		id: uuidv4(),
+		type:
+			gender === "female"
+				? GroupType.Girl
+				: gender === "male"
+					? GroupType.Boy
+					: GroupType.Coed,
 		profileUrl: url,
 		imageUrl: extractImageUrl($) || null,
-		names: extractNames($),
-		type: 'group',
-		active: $('.data-grid .equal:contains("Current state:")').next().text().trim() === 'active',
-		status: $('.data-grid .equal:contains("Current state:")').next().text().includes('active') ?
-			'active' : 'disbanded',
+		active: false,
+		status: GroupStatus.Inactive,
 		company: extractCompanyInfo($) || null,
 		socialMedia: extractSocialMediaLinks($),
-		facts: extractFacts($),
 		memberHistory: {
 			currentMembers: [],
-			formerMembers: []
-		}
+			formerMembers: [],
+		},
+		names: {
+			stage: "",
+			korean: null as string | null, // Allow both string and null
+			japanese: null as string | null, // Allow both string and null
+			chinese: null as string | null,
+		},
 	};
 
-	// Fix Korean name parsing
-	const $koreanName = $('.native-name').filter((_, el) => {
-		const type = $(el).find('dfn').text().toLowerCase();
-		return type.includes('korean') && !type.includes('birth');
-	}).first();
+	// Enhanced group name extraction
+	const names = {
+		stage: "",
+		korean: null as string | null, // Allow both string and null
+		japanese: null as string | null,
+		chinese: null as string | null,
+	};
 
-	if ($koreanName.length) {
-		const name = cleanText($koreanName.text().replace(/^[^:]+:\s*/, ''));
-		if (name && name !== '-') {
-			group.names.korean = name;
+	// Get stage name from h1
+	names.stage =
+		$("h1").first().text()?.trim().split(/[([]/, 1)[0]?.trim() ?? "";
+
+	// Try extracting from schema data first
+	try {
+		const schemaData = JSON.parse(
+			$('script[type="application/ld+json"]').first().text(),
+		);
+		if (schemaData.sameAs) {
+			const [_, korean, japanese, chinese] = schemaData.sameAs.split(",");
+			if (korean) names.korean = korean.trim();
+			if (japanese) names.japanese = japanese.trim();
+			if (chinese) names.chinese = chinese.trim();
 		}
+	} catch (e) {
+		// Schema parsing failed, continue with DOM extraction
 	}
 
-	// Extract debut and disbandment dates
-	const debutDateText = $('.data-grid .equal:contains("Debut:")').next().text().trim();
-	if (debutDateText) {
-		if (!group.groupInfo) group.groupInfo = {};
-		group.groupInfo.debutDate = normalizeDate(debutDateText);
+	// Extract from native name elements if schema didn't provide all names
+	for (const el of $(".native-name").toArray()) {
+		const $el = $(el);
+		const type = $el.find("dfn").text().toLowerCase();
+		const name = cleanText($el.text().replace(/^[^:：]*[:：]?\s*/, ""));
+
+		if (!name || name === "-") continue;
+
+		if (type.includes("korean") && !names.korean) names.korean = name;
+		else if (type.includes("japanese") && !names.japanese)
+			names.japanese = name;
+		else if (type.includes("chinese") && !names.chinese) names.chinese = name;
 	}
 
-	if (group.status === 'disbanded') {
-		const disbandmentText = $('.data-grid .equal:contains("Disbandment:")').next().text().trim();
-		if (disbandmentText) {
+	// Ensure we have at least one native name by trying h2 subtitles
+	if (!names.korean && !names.japanese && !names.chinese) {
+		$("h2 .native-name").each((_, el) => {
+			const $el = $(el);
+			const type = $el.find("dfn").text().toLowerCase();
+			const name = cleanText($el.text().replace(/^[^:：]*[:：]?\s*/, ""));
+
+			if (!name || name === "-") return;
+
+			if (type.includes("korean")) names.korean = name;
+			else if (type.includes("japanese")) names.japanese = name;
+			else if (type.includes("chinese")) names.chinese = name;
+		});
+	}
+
+	group.names = cleanupUndefined(names);
+
+	// Enhanced status detection
+	const statusText = $(
+		'.data-grid .equal:contains("Current state:"), .data-grid .equal:contains("Status:")',
+	)
+		.next()
+		.text()
+		.trim();
+	const profileContent = `${$(".profile-content").text()} ${$(".data-grid").text()}`;
+
+	group.active = !isInactiveStatus(statusText, profileContent);
+	group.status = group.active ? GroupStatus.Active : GroupStatus.Inactive;
+
+	// Extract debut date
+	const debutCell = $('.data-grid .equal:contains("Debut:")');
+	if (debutCell.length) {
+		const debutText = debutCell.next().text().trim();
+		const debutDate = normalizeDate(debutText);
+		if (debutDate) {
 			if (!group.groupInfo) group.groupInfo = {};
-			group.groupInfo.disbandmentDate = normalizeDate(disbandmentText);
+			group.groupInfo.debutDate = debutDate;
 		}
 	}
 
-	// Extract fandom data
-	const fandom: Group['fandom'] = {
-		name: null,
-		color: null,
-		lightstick: null,
-		fanCafe: null
-	};
+	// Extract disbandment date if applicable
+	if (group.status === "inactive") {
+		// Try multiple selectors for disbandment date
+		const disbandmentText =
+			$(
+				'.data-grid .equal:contains("Disbandment:"), .data-grid .equal:contains("Disbanded:")',
+			)
+				.next()
+				.text()
+				.trim() ||
+			$('.profile-content p:contains("disbanded on")')
+				.text()
+				.match(/disbanded on\s+([^.]+)/i)?.[1];
 
-	// Extract fandom name
-	const $fandomName = $('.data-grid .equal:contains("Fandom:")').next();
-	if ($fandomName.length) {
-		const name = cleanText($fandomName.text());
-		if (name && name !== '-') {
-			fandom.name = name;
+		if (disbandmentText) {
+			const disbandmentDate = normalizeDate(disbandmentText);
+			if (disbandmentDate) {
+				if (!group.groupInfo) group.groupInfo = {};
+				group.groupInfo.disbandmentDate = disbandmentDate;
+			}
 		}
-	}
-
-	// Extract color 
-	const $color = $('.data-grid .equal:contains("Color:")').next();
-	if ($color.length) {
-		const color = cleanText($color.text());
-		if (color && color !== '-') {
-			fandom.color = color;
-		}
-	}
-
-	// Extract fan cafe
-	const $fanCafe = $('.sidebar-associated-links a[href*="cafe.daum"]');
-	if ($fanCafe.length) {
-		fandom.fanCafe = {
-			name: $fanCafe.text().trim() || null,
-			url: $fanCafe.attr('href') || null
-		};
-	}
-
-	// Extract lightstick info
-	const $lightstick = $('.profile-content:contains("Lightstick")');
-	if ($lightstick.length) {
-		fandom.lightstick = {
-			name: $lightstick.find('h3, strong').first().text().trim() || null,
-			imageUrl: $lightstick.find('img').attr('src') || null,
-			description: $lightstick.find('p').text().trim() || null,
-			version: $lightstick.text().match(/Ver(?:sion)?\s*(\d+)/i)?.[1] || null,
-			releaseDate: extractDateFromText($lightstick.text()) || null
-		};
-	}
-
-	if (Object.values(fandom).some(v => v !== null)) {
-		group.fandom = fandom;
 	}
 
 	// Extract member history with positions
 	const memberHistory = {
 		currentMembers: [] as GroupMember[],
-		formerMembers: [] as GroupMember[]
+		formerMembers: [] as GroupMember[],
 	};
 
-	// Current members with positions
-	$('.members-list .current-member, .member-info .active').each((_, el) => {
+	// Current members
+	$(".members a").each((_, el) => {
 		const $member = $(el);
-		const name = $member.find('.name').text().trim();
-		const positionText = $member.find('.position').text().trim();
-		const periodText = $member.find('.period').text().trim();
-
+		const name = $member.find("strong, p").first().text().trim();
 		if (name) {
-			const member: GroupMember = {
+			memberHistory.currentMembers.push({
 				name,
-				profileUrl: ($member.find('a').attr('href') || '').startsWith('http') ?
-					$member.find('a').attr('href') || undefined :
-					`${BASE_URL}${$member.find('a').attr('href')}`,
-				position: positionText ? parsePositions(positionText) : undefined,
-				period: periodText ? parsePeriod(periodText) : undefined
-			};
-			memberHistory.currentMembers.push(cleanupUndefined(member));
+				profileUrl: ($member.attr("href") || "").startsWith("http")
+					? $member.attr("href") || ""
+					: `${BASE_URL}${$member.attr("href") || ""}`,
+			});
 		}
 	});
 
-	// Former members with positions
-	$('.members-list .former-member, .member-info .inactive').each((_, el) => {
-		const $member = $(el);
-		const name = $member.find('.name').text().trim();
-		const positionText = $member.find('.position').text().trim();
-		const periodText = $member.find('.period').text().trim();
+	// Former members
+	$('h3:contains("Past members")')
+		.next(".members")
+		.find("a")
+		.each((_, el) => {
+			const $member = $(el);
+			const name = $member.find("strong, p").first().text().trim();
+			if (name) {
+				memberHistory.formerMembers.push({
+					name,
+					profileUrl: ($member.attr("href") || "").startsWith("http")
+						? $member.attr("href") || ""
+						: `${BASE_URL}${$member.attr("href") || ""}`,
+				});
+			}
+		});
 
-		if (name) {
-			const member: GroupMember = {
-				name,
-				profileUrl: ($member.find('a').attr('href') || '').startsWith('http') ?
-					$member.find('a').attr('href') || undefined :
-					`${BASE_URL}${$member.find('a').attr('href')}`,
-				position: positionText ? parsePositions(positionText) : undefined,
-				period: periodText ? parsePeriod(periodText) : undefined
-			};
-			memberHistory.formerMembers.push(cleanupUndefined(member));
-		}
-	});
-
-	group.memberHistory = memberHistory;
+	group.memberHistory = {
+		currentMembers: memberHistory.currentMembers.filter(
+			(member) => member.profileUrl !== undefined,
+		) as { name: string; profileUrl: string }[],
+		formerMembers: memberHistory.formerMembers.filter(
+			(member) => member.profileUrl !== undefined,
+		) as { name: string; profileUrl: string }[],
+	};
 
 	return cleanupUndefined(group);
 }
 
-async function extractIdolData($: cheerio.CheerioAPI, url: string): Promise<Idol> {
+async function extractIdolData(
+	$: cheerio.CheerioAPI,
+	url: string,
+): Promise<Idol> {
 	const idol: Idol = {
 		id: uuidv4(),
 		profileUrl: url,
 		imageUrl: extractImageUrl($) || null,
-		names: extractNames($),
-		active: false, // Will be set below
-		status: 'inactive', // Will be set below
+		active: false,
+		status: IdolStatus.Inactive,
 		company: extractCompanyInfo($) || null,
 		socialMedia: extractSocialMediaLinks($),
-		facts: extractFacts($)
+		names: {
+			stage: "",
+			korean: null,
+			japanese: null,
+			chinese: null,
+		},
 	};
 
-	// Determine active status properly
-	const statusText = $('.data-grid .equal:contains("Current state:")').next().text().trim();
-	idol.active = statusText === 'active';
-	idol.status = statusText === 'active' ? 'active' :
-		statusText.includes('hiatus') ? 'hiatus' : 'inactive';
+	// Enhanced idol name extraction
+	const names = {
+		stage: "",
+		korean: null as string | null,
+		japanese: null as string | null,
+		chinese: null as string | null,
+	};
 
-	// Extract MBTI
-	const mbtiText = $('.data-grid .cell:contains("MBTI:")').find('.value').text().trim();
-	if (mbtiText && mbtiText.match(/^[IE][NS][FT][JP]$/)) {
-		if (!idol.personalInfo) idol.personalInfo = {};
-		idol.personalInfo.mbti = mbtiText;
+	// Get stage name from h1
+	names.stage =
+		$("h1").first().text()?.trim().split(/[([]/, 1)[0]?.trim() ?? "";
+
+	// First try schema data - it often has the most complete native names
+	try {
+		const schemaScript = $('script[type="application/ld+json"]').first().text();
+		const schemaData = JSON.parse(schemaScript);
+
+		// Names are stored in sameAs field, comma separated
+		if (schemaData.sameAs) {
+			const [_, korean, japanese, chinese] = schemaData.sameAs.split(",");
+			if (korean) names.korean = korean.trim();
+			if (japanese) names.japanese = japanese.trim();
+			if (chinese) names.chinese = chinese.trim();
+		}
+	} catch (e) {
+		// Schema parse failed, continue with HTML parsing
+	}
+
+	// Extract names from profile text as backup
+	$(
+		'.profile-names .name, .native-name, .data-grid .equal:contains("Birth name:")',
+	).each((_, el) => {
+		const $el = $(el);
+		const type = $el.find("dfn, .type").text().toLowerCase();
+		const text = cleanText($el.text().replace(/^[^:：]*[:：]?\s*/, ""));
+
+		if (!text || text === "-") return;
+
+		if (type.includes("korean")) names.korean = text;
+		else if (type.includes("japanese")) names.japanese = text;
+		else if (type.includes("chinese")) names.chinese = text;
+	});
+
+	// Assign names to idol object
+	idol.names = cleanupUndefined(names);
+
+	// Enhanced status detection
+	const statusText = $(
+		'.data-grid .equal:contains("Current state:"), .data-grid .equal:contains("Status:")',
+	)
+		.next()
+		.text()
+		.trim();
+	const profileContent = `${$(".profile-content").text()} ${$(".data-grid").text()}`;
+
+	idol.active = !isInactiveStatus(statusText, profileContent);
+	idol.status = idol.active ? IdolStatus.Active : IdolStatus.Inactive;
+
+	// Extract personal info with MBTI
+	const personalInfo = extractIdolPersonalInfo($);
+	if (Object.keys(personalInfo).length > 0) {
+		idol.personalInfo = personalInfo;
 	}
 
 	// Extract physical info
@@ -824,47 +841,33 @@ async function extractIdolData($: cheerio.CheerioAPI, url: string): Promise<Idol
 		idol.physicalInfo = physicalInfo;
 	}
 
-	// Extract career info with proper debut date
+	// Extract career info
 	const careerInfo = extractIdolCareerInfo($);
 	if (Object.keys(careerInfo).length > 0) {
 		idol.careerInfo = careerInfo;
 	}
 
-	// Extract debut info
-	const debutText = $('.data-grid .cell:contains("Debut:")').find('.value').text().trim();
-	if (debutText) {
-		const debutDate = normalizeDate(debutText);
-		if (debutDate) {
-			if (!idol.careerInfo) idol.careerInfo = {};
-			idol.careerInfo.debutDate = debutDate;
-		}
-	}
-
-	// Extract personal info
-	const personalInfo = extractIdolPersonalInfo($);
-	if (Object.keys(personalInfo).length > 0) {
-		idol.personalInfo = personalInfo;
-	}
-
 	// Extract group affiliations
-	const groups = [];
-	$('#idol-associated-groups .group').each((_, el) => {
+	const groups: {
+		name: string;
+		status: "current" | "former";
+		period?: { start: string; end?: string };
+	}[] = [];
+	$("#idol-associated-groups .group").each((_, el) => {
 		const $group = $(el);
-		const name = $group.find('h4 a').text().trim();
-		const status = $group.find('figcaption i').hasClass('fa-play-circle') ? 'current' : 'former';
+		const name = $group.find("h4 a").text().trim();
+		const status: "current" | "former" = $group
+			.find("figcaption i")
+			.hasClass("fa-play-circle")
+			? "current"
+			: "former";
 
 		if (name) {
 			const group = {
 				name,
 				status,
-				period: parsePeriod($group.find('figcaption span').text())
+				period: parsePeriod($group.find("figcaption span").text()) || undefined,
 			};
-
-			const positionText = $group.find('.position, .roles').text().trim();
-			if (positionText) {
-				const positions = parsePositions(positionText);
-				if (positions.length > 0) group.position = positions;
-			}
 
 			groups.push(group);
 		}
@@ -874,78 +877,13 @@ async function extractIdolData($: cheerio.CheerioAPI, url: string): Promise<Idol
 		idol.groups = groups;
 	}
 
-	// Extract birth name more thoroughly
-	const $birthName = $('.native-name').filter((_, el) => {
-		const type = $(el).find('dfn').text().toLowerCase();
-		return type.includes('birth') || type.includes('real name');
-	}).first();
-
-	if ($birthName.length) {
-		const name = cleanText($birthName.clone().children().remove().end().text());
-		const korean = $birthName.find('.korean').text().trim();
-		const japanese = $birthName.find('.japanese').text().trim();
-		const chinese = $birthName.find('.chinese').text().trim();
-
-		if (name) {
-			idol.names.birth = {
-				latin: name.replace(/^[^:]+:\s*/, '').trim(),
-				hangeul: korean || null,
-				japanese: japanese || null,
-				chinese: chinese || null
-			};
-		}
-	}
-
-	// Extract positions from groups
-	const positions = new Set<IdolPosition>();
-	$('#idol-associated-groups .group').each((_, el) => {
-		const $group = $(el);
-		const positionText = $group.find('.position, .roles').text().trim();
-		if (positionText) {
-			parsePositions(positionText).forEach(p => positions.add(p));
-		}
-	});
-
-	if (positions.size > 0) {
-		if (!idol.careerInfo) idol.careerInfo = {};
-		idol.careerInfo.positions = Array.from(positions);
-	}
-
-	// Extract facts more thoroughly
-	const facts: Fact[] = [];
-
-	// Extract from facts sections
-	$('.facts li, .fun-facts li, .profile-facts li').each((_, el) => {
-		const text = cleanText($(el).text());
-		if (text && text.length > 10) {
-			facts.push({
-				content: text,
-				category: categorizeFact(text),
-				date: extractDateFromText(text)
-			});
-		}
-	});
-
-	// Extract from biography paragraphs
-	$('.profile-content p, .biography p').each((_, el) => {
-		const text = cleanText($(el).text());
-		text.split(/[.!?]\s+/).forEach(sentence => {
-			if (sentence.length > 10 && isFact(sentence)) {
-				facts.push({
-					content: sentence,
-					category: categorizeFact(sentence)
-				});
-			}
-		});
-	});
-
-	idol.facts = facts;
-
 	return cleanupUndefined(idol);
 }
 
-function extractPhysicalInfo($: cheerio.CheerioAPI): NonNullable<Idol['physicalInfo']> {
-	const info: NonNullable<Idol['physicalInfo']> = {};
+function extractPhysicalInfo(
+	$: cheerio.CheerioAPI,
+): NonNullable<Idol["physicalInfo"]> {
+	const info: NonNullable<Idol["physicalInfo"]> = {};
 
 	// Extract birth date
 	const birthCell = $('.data-grid .equal:contains("Birthday:")');
@@ -958,110 +896,65 @@ function extractPhysicalInfo($: cheerio.CheerioAPI): NonNullable<Idol['physicalI
 		}
 	}
 
-	// Extract MBTI properly
-	const mbtiCell = $('.data-grid .equal:contains("MBTI:")');
-	if (mbtiCell.length) {
-		const mbtiText = mbtiCell.next().text().trim().toUpperCase();
-		if (mbtiText.match(/^[IE][NS][FT][JP]$/)) {
-			info.mbti = mbtiText;
-		}
-	}
-
 	// Height
 	const heightText = $('.data-grid .equal:contains("Height:")').next().text();
 	const heightMatch = heightText.match(/(\d+)\s*cm/);
-	if (heightMatch) info.height = parseInt(heightMatch[1]);
+	if (heightMatch) info.height = Number.parseInt(heightMatch[1] ?? "0");
 
-	// Weight  
+	// Weight
 	const weightText = $('.data-grid .equal:contains("Weight:")').next().text();
 	const weightMatch = weightText.match(/(\d+)\s*kg/);
-	if (weightMatch) info.weight = parseInt(weightMatch[1]);
+	if (weightMatch) info.weight = Number.parseInt(weightMatch[1] ?? "0");
 
 	// Blood Type
-	const bloodText = $('.data-grid .equal:contains("Blood type:")').next().text().trim().toUpperCase();
-	if (['A', 'B', 'AB', 'O'].includes(bloodText)) {
-		info.bloodType = bloodText as 'A' | 'B' | 'AB' | 'O';
+	const bloodText = $('.data-grid .equal:contains("Blood type:")')
+		.next()
+		.text()
+		.trim()
+		.toUpperCase();
+	if (["A", "B", "AB", "O"].includes(bloodText)) {
+		info.bloodType = bloodText as BloodType;
 	}
 
 	return cleanupUndefined(info);
 }
 
-function extractFandom($: cheerio.CheerioAPI): NonNullable<Group['fandom']> {
-	const fandom: NonNullable<Group['fandom']> = {
-		name: null,
-		color: null,
-		lightstick: null,
-		fanCafe: null
-	};
-
-	// Try to extract fandom name
-	const fandomCell = $('.data-grid .equal:contains("Fandom:")');
-	if (fandomCell.length) {
-		const fandomText = fandomCell.next().text().trim();
-		if (fandomText && fandomText !== '-') {
-			fandom.name = fandomText;
-		}
-	}
-
-	// Try to extract color
-	const colorCell = $('.data-grid .equal:contains("Color:")');
-	if (colorCell.length) {
-		const colorText = colorCell.next().text().trim();
-		if (colorText && colorText !== '-') {
-			fandom.color = colorText;
-		}
-	}
-
-	// Extract lightstick info
-	const $lightstick = $('.profile-content:contains("Lightstick")');
-	if ($lightstick.length) {
-		fandom.lightstick = {
-			name: $lightstick.find('h3, strong').first().text().trim() || null,
-			imageUrl: $lightstick.find('img').attr('src') || null,
-			description: $lightstick.find('p').text().trim() || null,
-			version: $lightstick.text().match(/Ver(?:sion)?\s*(\d+)/i)?.[1] || null,
-			releaseDate: extractDateFromText($lightstick.text()) || null
-		};
-	}
-
-	// Extract fan cafe
-	const $fanCafe = $('.sidebar-associated-links a[href*="cafe.daum"]');
-	if ($fanCafe.length) {
-		fandom.fanCafe = {
-			name: $fanCafe.text().trim() || null,
-			url: $fanCafe.attr('href') || null
-		};
-	}
-
-	return cleanupUndefined(fandom);
-}
-
-function extractMemberInfo($: cheerio.CheerioAPI, element: cheerio.Element): GroupMember | null {
+function extractMemberInfo(
+	$: cheerio.CheerioAPI,
+	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	element: any,
+): GroupMember | null {
 	const $member = $(element);
-	const name = cleanText($member.find('.name strong').text() || $member.find('.name').text());
+	const name = cleanText(
+		$member.find(".name strong").text() || $member.find(".name").text(),
+	);
 	if (!name) return null;
 
-	const member: GroupMember = { name };
+	const href = $member.attr("href") || $member.find("a").attr("href") || "";
+	const member: GroupMember = {
+		name,
+		profileUrl: href.startsWith("http") ? href : `${BASE_URL}${href}`,
+	};
 
-	const profileUrl = $member.attr('href') || $member.find('a').attr('href');
-	if (profileUrl) {
-		member.profileUrl = profileUrl.startsWith('http') ?
-			profileUrl : `${BASE_URL}${profileUrl}`;
+	if (!href) {
+		return null; // Skip members without valid URLs
 	}
 
 	// Extract positions from various possible locations
-	const positionText = $member.find('p:contains("Position:")').text() ||
-		$member.find('.position').text() ||
-		$member.parent().next('.position').text();
+	const positionText =
+		$member.find('p:contains("Position:")').text() ||
+		$member.find(".position").text() ||
+		$member.parent().next(".position").text();
 	if (positionText) {
-		const positions = parsePositions(positionText.replace('Position:', ''));
+		const positions = parsePositions(positionText.replace("Position:", ""));
 		if (positions.length > 0) member.position = positions;
 	}
 
 	// Extract period
-	const periodText = $member.find('.period').text() ||
-		$member.find('.dates').text() ||
-		$member.parent().next('.dates').text();
+	const periodText =
+		$member.find(".period").text() ||
+		$member.find(".dates").text() ||
+		$member.parent().next(".dates").text();
 	if (periodText) {
 		const period = parsePeriod(periodText);
 		if (period) member.period = period;
@@ -1070,8 +963,10 @@ function extractMemberInfo($: cheerio.CheerioAPI, element: cheerio.Element): Gro
 	return member;
 }
 
-function extractIdolCareerInfo($: cheerio.CheerioAPI): NonNullable<Idol['careerInfo']> {
-	const info: NonNullable<Idol['careerInfo']> = {};
+function extractIdolCareerInfo(
+	$: cheerio.CheerioAPI,
+): NonNullable<Idol["careerInfo"]> {
+	const info: NonNullable<Idol["careerInfo"]> = { activeYears: [] };
 
 	// Extract debut date
 	const debutCell = $('.data-grid .equal:contains("Debut:")');
@@ -1081,153 +976,60 @@ function extractIdolCareerInfo($: cheerio.CheerioAPI): NonNullable<Idol['careerI
 		if (date) info.debutDate = date;
 	}
 
-	// Extract training period with company name
-	const trainingText = $('.data-grid .equal:contains("Training period:")').next().text().trim();
-	if (trainingText && trainingText !== '-') {
-		const period = parsePeriod(trainingText);
-		if (period) {
-			const company = trainingText.match(/(?:at|under|with)\s+([^(]+)/)?.[1]?.trim();
-			info.trainingPeriod = {
-				duration: calculateDuration(period.start, period.end),
-				start: period.start,
-				end: period.end,
-				...(company && { company })
-			};
-		}
-	}
-
 	// Extract active years
-	const activeYearsText = $('.data-grid .equal:contains("Active years:")').next().text().trim();
+	const activeYearsText = $('.data-grid .equal:contains("Active years:")')
+		.next()
+		.text()
+		.trim();
 	if (activeYearsText) {
-		info.activeYears = activeYearsText.split(',').map(period => {
-			const [start, end] = period.trim().split('-');
+		info.activeYears = activeYearsText.split(",").map((period) => {
+			const [start, end] = period.trim().split("-");
 			return {
-				start: `${start.trim()}-01-01`,
-				end: end ? `${end.trim()}-12-31` : undefined
+				start: `${(start ?? "").trim()}-01-01`,
+				end: end ? `${end.trim()}-12-31` : undefined,
 			};
 		});
 	}
 
-	// Extract show appearances
-	$('.shows .show, .appearances .item').each((_, el) => {
-		if (!info.showAppearances) info.showAppearances = [];
-
-		const $show = $(el);
-		const showName = $show.find('.name').text().trim();
-		const showYear = $show.find('.year').text().trim();
-		const showType = $show.find('.type').text().trim().toLowerCase();
-
-		if (showName) {
-			info.showAppearances.push({
-				name: showName,
-				year: showYear || undefined,
-				type: determineShowType(showType)
-			});
-		}
-	});
-
 	return cleanupUndefined(info);
 }
 
-function extractIdolPersonalInfo($: cheerio.CheerioAPI): NonNullable<Idol['personalInfo']> {
-	const info: NonNullable<Idol['personalInfo']> = {};
+function extractIdolPersonalInfo(
+	$: cheerio.CheerioAPI,
+): NonNullable<Idol["personalInfo"]> {
+	const info: NonNullable<Idol["personalInfo"]> = {};
 
-	// Extract nationality
-	const nationalityText = $('.data-grid .equal:contains("Country:")').next().text().trim();
-	if (nationalityText) {
-		info.nationality = nationalityText;
-	}
-
-	// Extract birthplace
-	const birthplaceText = $('.data-grid .equal:contains("Birthplace:")').next().text().trim();
-	if (birthplaceText) {
-		const [city, region, country] = birthplaceText.split(',').map(p => p.trim());
-		info.birthplace = {
-			city,
-			region: region || undefined,
-			country: country || 'South Korea'
-		};
-	}
-
-	// Extract education
-	const educationText = $('.data-grid .equal:contains("Education:")').next().text().trim();
-	if (educationText && educationText !== '-') {
-		info.education = educationText.split(',').map(school => ({
-			school: school.trim(),
-			type: determineEducationType(school.trim())
-		}));
-	}
-
-	// Extract languages
-	const languagesText = $('.data-grid .equal:contains("Language(s):")').next().text().trim();
-	if (languagesText && languagesText !== '-') {
-		info.languages = languagesText.split(',').map(lang => ({
-			language: lang.trim(),
-			level: determineLangLevel(lang.trim())
-		}));
-	}
-
-	// Extract hobbies and specialties
-	const hobbiesText = $('.data-grid .equal:contains("Hobbies:")').next().text().trim();
-	if (hobbiesText && hobbiesText !== '-') {
-		info.hobbies = hobbiesText.split(',').map(h => h.trim());
-	}
-
-	const specialtiesText = $('.data-grid .equal:contains("Specialties:")').next().text().trim();
-	if (specialtiesText && specialtiesText !== '-') {
-		info.specialties = specialtiesText.split(',').map(s => s.trim());
+	// Extract MBTI
+	const mbtiText = $('.data-grid .cell:contains("MBTI:")')
+		.find(".value")
+		.text()
+		.trim();
+	if (mbtiText?.match(/^[IE][NS][FT][JP]$/)) {
+		info.mbti = mbtiText;
 	}
 
 	return cleanupUndefined(info);
-}
-
-function determineEducationType(school: string): Idol['personalInfo']['education'][0]['type'] {
-	const lower = school.toLowerCase();
-	if (lower.includes('university') || lower.includes('college')) return 'university';
-	if (lower.includes('high')) return 'high school';
-	if (lower.includes('middle')) return 'middle';
-	if (lower.includes('elementary')) return 'elementary';
-	return undefined;
-}
-
-function determineLangLevel(lang: string): NonNullable<Idol['personalInfo']['languages']>[0]['level'] {
-	const lower = lang.toLowerCase();
-	if (lower.includes('native')) return 'native';
-	if (lower.includes('fluent')) return 'fluent';
-	if (lower.includes('intermediate')) return 'intermediate';
-	if (lower.includes('basic')) return 'basic';
-	return undefined;
-}
-
-function determineShowType(type: string): NonNullable<Idol['careerInfo']['showAppearances']>[0]['type'] {
-	const lower = type.toLowerCase();
-	if (lower.includes('survival')) return 'survival';
-	if (lower.includes('variety')) return 'variety';
-	if (lower.includes('drama')) return 'drama';
-	if (lower.includes('musical')) return 'musical';
-	if (lower.includes('radio')) return 'radio';
-	if (lower.includes('web')) return 'web';
-	return undefined;
 }
 
 function calculateDuration(start: string, end?: string): string {
 	const startDate = new Date(start);
 	const endDate = end ? new Date(end) : new Date();
-	const months = (endDate.getFullYear() - startDate.getFullYear()) * 12
-		+ (endDate.getMonth() - startDate.getMonth());
+	const months =
+		(endDate.getFullYear() - startDate.getFullYear()) * 12 +
+		(endDate.getMonth() - startDate.getMonth());
 
 	if (months < 12) return `${months} months`;
 	const years = Math.floor(months / 12);
 	const remainingMonths = months % 12;
-	return remainingMonths > 0 ?
-		`${years} years ${remainingMonths} months` :
-		`${years} years`;
+	return remainingMonths > 0
+		? `${years} years ${remainingMonths} months`
+		: `${years} years`;
 }
 
 async function processIncrementalScraping(options: {
 	existingData: DataSet;
-	type: 'idol' | 'group';
-	gender: 'female' | 'male' | 'coed';
+	type: "idol" | "group";
+	gender: "female" | "male" | "coed";
 }): Promise<(Idol | Group)[]> {
 	const { existingData, type, gender } = options;
 
@@ -1235,7 +1037,7 @@ async function processIncrementalScraping(options: {
 	const existingUrls = new Set(
 		Object.values(existingData)
 			.flat()
-			.map(profile => profile.profileUrl)
+			.map((profile) => profile.profileUrl),
 	);
 
 	// Get all profile URLs for this category
@@ -1243,14 +1045,14 @@ async function processIncrementalScraping(options: {
 	const mainPageHtml = await parseProfileWithCache(
 		`${BASE_URL}${endpoint}`,
 		type,
-		false
+		false,
 	);
 
 	const $ = cheerio.load(mainPageHtml);
 	const allUrls = extractProfileLinks($);
 
 	// Filter out already processed URLs
-	const newUrls = allUrls.filter(url => !existingUrls.has(url));
+	const newUrls = allUrls.filter((url) => !existingUrls.has(url));
 	logger.info(`Found ${newUrls.length} new profiles to process`);
 
 	// Process new URLs
@@ -1258,7 +1060,7 @@ async function processIncrementalScraping(options: {
 		type,
 		gender,
 		urls: newUrls,
-		useCache: true
+		useCache: true,
 	});
 }
 
@@ -1273,7 +1075,7 @@ async function runProductionMode(options: {
 		maleIdols: [],
 		girlGroups: [],
 		boyGroups: [],
-		coedGroups: []
+		coedGroups: [],
 	};
 
 	// Load existing dataset if available
@@ -1283,20 +1085,20 @@ async function runProductionMode(options: {
 		dataset = {
 			...dataset,
 			...existingGroups,
-			...existingIdols
+			...existingIdols,
 		};
-		logger.info('Loaded existing dataset');
+		logger.info("Loaded existing dataset");
 	} catch (e) {
-		logger.warn('No existing dataset found, starting fresh');
+		logger.warn("No existing dataset found, starting fresh");
 	}
 
 	// Process each category incrementally
 	const categories = [
-		{ type: 'idol' as const, gender: 'female' as const },
-		{ type: 'idol' as const, gender: 'male' as const },
-		{ type: 'group' as const, gender: 'female' as const },
-		{ type: 'group' as const, gender: 'male' as const },
-		{ type: 'group' as const, gender: 'coed' as const }
+		{ type: "idol" as const, gender: "female" as const },
+		{ type: "idol" as const, gender: "male" as const },
+		{ type: "group" as const, gender: "female" as const },
+		{ type: "group" as const, gender: "male" as const },
+		{ type: "group" as const, gender: "coed" as const },
 	];
 
 	for (const category of categories) {
@@ -1304,37 +1106,37 @@ async function runProductionMode(options: {
 
 		const newProfiles = await processIncrementalScraping({
 			existingData: dataset,
-			...category
+			...category,
 		});
 
 		// Merge new profiles with existing data
-		if (category.type === 'idol') {
-			if (category.gender === 'female') {
+		if (category.type === "idol") {
+			if (category.gender === "female") {
 				dataset.femaleIdols = mergeProfiles(
 					dataset.femaleIdols,
-					newProfiles as Idol[]
+					newProfiles as Idol[],
 				);
 			} else {
 				dataset.maleIdols = mergeProfiles(
 					dataset.maleIdols,
-					newProfiles as Idol[]
+					newProfiles as Idol[],
 				);
 			}
 		} else {
-			if (category.gender === 'female') {
+			if (category.gender === "female") {
 				dataset.girlGroups = mergeProfiles(
 					dataset.girlGroups,
-					newProfiles as Group[]
+					newProfiles as Group[],
 				);
-			} else if (category.gender === 'male') {
+			} else if (category.gender === "male") {
 				dataset.boyGroups = mergeProfiles(
 					dataset.boyGroups,
-					newProfiles as Group[]
+					newProfiles as Group[],
 				);
 			} else {
 				dataset.coedGroups = mergeProfiles(
 					dataset.coedGroups,
-					newProfiles as Group[]
+					newProfiles as Group[],
 				);
 			}
 		}
@@ -1349,16 +1151,16 @@ async function runProductionMode(options: {
 
 function mergeProfiles<T extends { id: string; profileUrl: string }>(
 	existing: T[],
-	newProfiles: T[]
+	newProfiles: T[],
 ): T[] {
 	const merged = [...existing];
-	const urlToId = new Map(existing.map(p => [p.profileUrl, p.id]));
+	const urlToId = new Map(existing.map((p) => [p.profileUrl, p.id]));
 
-	newProfiles.forEach(profile => {
+	for (const profile of newProfiles) {
 		const existingId = urlToId.get(profile.profileUrl);
 		if (existingId) {
 			// Update existing profile
-			const index = merged.findIndex(p => p.id === existingId);
+			const index = merged.findIndex((p) => p.id === existingId);
 			if (index !== -1) {
 				merged[index] = { ...profile, id: existingId };
 			}
@@ -1366,64 +1168,77 @@ function mergeProfiles<T extends { id: string; profileUrl: string }>(
 			// Add new profile
 			merged.push(profile);
 		}
-	});
+	}
 
 	return merged;
 }
 
 function cleanupUndefined<T extends object>(obj: T): T {
-	const cleaned = { ...obj };
+	const cleaned: Record<string, unknown> = {
+		...(obj as Record<string, unknown>),
+	};
 
-	Object.entries(cleaned).forEach(([key, value]) => {
+	for (const [key, value] of Object.entries(cleaned)) {
 		if (value === undefined) {
 			delete cleaned[key];
-		} else if (Array.isArray(value)) {
+			continue;
+		}
+
+		if (Array.isArray(value)) {
 			if (value.length === 0) {
 				delete cleaned[key];
-			} else {
-				cleaned[key] = value.map(item =>
-					typeof item === 'object' && item !== null ?
-						cleanupUndefined(item) : item
-				);
+				continue;
 			}
-		} else if (typeof value === 'object' && value !== null) {
+
+			const cleanedArray = [];
+			for (const item of value) {
+				if (typeof item === "object" && item !== null) {
+					cleanedArray.push(cleanupUndefined(item));
+				} else {
+					cleanedArray.push(item);
+				}
+			}
+			cleaned[key] = cleanedArray;
+		} else if (typeof value === "object" && value !== null) {
 			const cleanedChild = cleanupUndefined(value);
 			if (Object.keys(cleanedChild).length === 0) {
 				delete cleaned[key];
 			} else {
-				cleaned[key] = cleanedChild;
+				(cleaned as Record<string, unknown>)[key] = cleanedChild;
 			}
 		}
-	});
+	}
 
-	return cleaned;
+	return cleaned as T;
 }
 
 function calculateZodiacSign(date: string): string | undefined {
-	const [year, month, day] = date.split('-').map(n => parseInt(n));
+	const [year, month, day] = date.split("-").map((n) => Number.parseInt(n));
 
 	const zodiacRanges = [
-		{ sign: 'Capricorn', start: [1, 1], end: [1, 19] },
-		{ sign: 'Aquarius', start: [1, 20], end: [2, 18] },
-		{ sign: 'Pisces', start: [2, 19], end: [3, 20] },
-		{ sign: 'Aries', start: [3, 21], end: [4, 19] },
-		{ sign: 'Taurus', start: [4, 20], end: [5, 20] },
-		{ sign: 'Gemini', start: [5, 21], end: [6, 20] },
-		{ sign: 'Cancer', start: [6, 21], end: [7, 22] },
-		{ sign: 'Leo', start: [7, 23], end: [8, 22] },
-		{ sign: 'Virgo', start: [8, 23], end: [9, 22] },
-		{ sign: 'Libra', start: [9, 23], end: [10, 22] },
-		{ sign: 'Scorpio', start: [10, 23], end: [11, 21] },
-		{ sign: 'Sagittarius', start: [11, 22], end: [12, 21] },
-		{ sign: 'Capricorn', start: [12, 22], end: [12, 31] }
+		{ sign: "Capricorn", start: [1, 1], end: [1, 19] },
+		{ sign: "Aquarius", start: [1, 20], end: [2, 18] },
+		{ sign: "Pisces", start: [2, 19], end: [3, 20] },
+		{ sign: "Aries", start: [3, 21], end: [4, 19] },
+		{ sign: "Taurus", start: [4, 20], end: [5, 20] },
+		{ sign: "Gemini", start: [5, 21], end: [6, 20] },
+		{ sign: "Cancer", start: [6, 21], end: [7, 22] },
+		{ sign: "Leo", start: [7, 23], end: [8, 22] },
+		{ sign: "Virgo", start: [8, 23], end: [9, 22] },
+		{ sign: "Libra", start: [9, 23], end: [10, 22] },
+		{ sign: "Scorpio", start: [10, 23], end: [11, 21] },
+		{ sign: "Sagittarius", start: [11, 22], end: [12, 21] },
+		{ sign: "Capricorn", start: [12, 22], end: [12, 31] },
 	];
 
 	for (const range of zodiacRanges) {
 		const [startMonth, startDay] = range.start;
 		const [endMonth, endDay] = range.end;
 
-		if ((month === startMonth && day >= startDay) ||
-			(month === endMonth && day <= endDay)) {
+		if (
+			(month === startMonth && (day ?? 0) >= (startDay ?? 0)) ||
+			(month === endMonth && day !== undefined && day <= (endDay ?? 31))
+		) {
 			return range.sign;
 		}
 	}
@@ -1431,25 +1246,33 @@ function calculateZodiacSign(date: string): string | undefined {
 	return undefined;
 }
 
-function getEndpointForType(type: 'idol' | 'group', gender: 'female' | 'male' | 'coed'): string {
-	if (type === 'idol') {
-		return gender === 'female' ? ENDPOINTS.femaleIdols : ENDPOINTS.maleIdols;
+function getEndpointForType(
+	type: "idol" | "group",
+	gender: "female" | "male" | "coed",
+): string {
+	if (type === "idol") {
+		return gender === "female" ? ENDPOINTS.femaleIdols : ENDPOINTS.maleIdols;
 	}
-	return gender === 'female' ? ENDPOINTS.girlGroups :
-		gender === 'male' ? ENDPOINTS.boyGroups :
-			ENDPOINTS.coedGroups;
+	return gender === "female"
+		? ENDPOINTS.girlGroups
+		: gender === "male"
+			? ENDPOINTS.boyGroups
+			: ENDPOINTS.coedGroups;
 }
 
 function parsePeriod(text: string): { start: string; end?: string } | null {
 	if (!text) return null;
 
-	const periodMatch = text.match(/(\d{4}(?:[-.／]\d{1,2}(?:[-.／]\d{1,2})?)?)\s*(?:-|~|to|until)\s*(\d{4}(?:[-.／]\d{1,2}(?:[-.／]\d{1,2})?)?|present)/i);
+	const periodMatch = text.match(
+		/(\d{4}(?:[-.／]\d{1,2}(?:[-.／]\d{1,2})?)?)\s*(?:-|~|to|until)\s*(\d{4}(?:[-.／]\d{1,2}(?:[-.／]\d{1,2})?)?|present)/i,
+	);
 
 	if (periodMatch) {
 		const [, start, end] = periodMatch;
 		return {
-			start: normalizeDate(start) || start,
-			...(end && end.toLowerCase() !== 'present' && { end: normalizeDate(end) || end })
+			start: normalizeDate(start ?? "") ?? start ?? "",
+			...(end &&
+				end.toLowerCase() !== "present" && { end: normalizeDate(end) || end }),
 		};
 	}
 
@@ -1457,7 +1280,7 @@ function parsePeriod(text: string): { start: string; end?: string } | null {
 	const singleMatch = text.match(/(\d{4}(?:[-.／]\d{1,2}(?:[-.／]\d{1,2})?)?)/);
 	if (singleMatch) {
 		return {
-			start: normalizeDate(singleMatch[1]) || singleMatch[1]
+			start: normalizeDate(singleMatch[1] ?? "") || (singleMatch[1] ?? ""),
 		};
 	}
 
@@ -1468,9 +1291,10 @@ function normalizeDate(date: string): string | null {
 	if (!date) return null;
 
 	// Handle various date formats
-	const cleaned = date.trim()
-		.replace(/[．。､、]/g, '.')
-		.replace(/[／/]/g, '-');
+	const cleaned = date
+		.trim()
+		.replace(/[．。､、]/g, ".")
+		.replace(/[／/]/g, "-");
 
 	const formats = [
 		// Full date formats
@@ -1480,7 +1304,7 @@ function normalizeDate(date: string): string | null {
 		/(\d{4})-(\d{1,2})/,
 		/(\d{4})\.(\d{1,2})/,
 		// Year only
-		/(\d{4})/
+		/(\d{4})/,
 	];
 
 	for (const format of formats) {
@@ -1488,10 +1312,12 @@ function normalizeDate(date: string): string | null {
 		if (match) {
 			const [_, year, month, day] = match;
 			if (day) {
-				return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+				return month && day
+					? `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+					: null;
 			}
 			if (month) {
-				return `${year}-${month.padStart(2, '0')}-01`;
+				return `${year}-${month.padStart(2, "0")}-01`;
 			}
 			return `${year}-01-01`;
 		}
@@ -1501,14 +1327,21 @@ function normalizeDate(date: string): string | null {
 }
 
 async function scrapeProfiles(options: {
-	type: 'idol' | 'group';
-	gender: 'female' | 'male' | 'coed';
+	type: "idol" | "group";
+	gender: "female" | "male" | "coed";
 	debug?: boolean;
 	sampleSize?: number;
 	urls?: string[];
 	useCache?: boolean;
 }): Promise<(Idol | Group)[]> {
-	const { type, gender, debug = false, sampleSize = 5, urls, useCache = true } = options;
+	const {
+		type,
+		gender,
+		debug = false,
+		sampleSize = 5,
+		urls,
+		useCache = true,
+	} = options;
 
 	startTime = Date.now(); // Reset start time for each scrape session
 
@@ -1517,13 +1350,19 @@ async function scrapeProfiles(options: {
 		let profileUrls = urls;
 		if (!profileUrls) {
 			const endpoint = getEndpointForType(type, gender);
-			const mainPageHtml = await parseProfileWithCache(`${BASE_URL}${endpoint}`, type, false);
+			const mainPageHtml = await parseProfileWithCache(
+				`${BASE_URL}${endpoint}`,
+				type,
+				false,
+			);
 			const $ = cheerio.load(mainPageHtml);
 			profileUrls = extractProfileLinks($);
 		}
 
 		if (debug) {
-			profileUrls = profileUrls.sort(() => Math.random() - 0.5).slice(0, sampleSize);
+			profileUrls = profileUrls
+				.sort(() => Math.random() - 0.5)
+				.slice(0, sampleSize);
 		}
 
 		// Load existing data
@@ -1531,7 +1370,7 @@ async function scrapeProfiles(options: {
 		const processedUrls = new Set(getAllProfileUrls(existingData));
 
 		// Filter out already processed URLs
-		const newUrls = profileUrls.filter(url => !processedUrls.has(url));
+		const newUrls = profileUrls.filter((url) => !processedUrls.has(url));
 		const total = newUrls.length;
 
 		logger.info(`Starting ${gender} ${type} scraping...`);
@@ -1545,29 +1384,38 @@ async function scrapeProfiles(options: {
 		const batchSize = CONFIG.concurrentRequests;
 		let processed = 0;
 		const startTime = Date.now();
-		let lastUpdate = startTime;
+		const lastUpdate = startTime;
 
 		// Track global progress
 		const allProfiles = {
 			total: profileUrls.length,
 			processed: 0,
 			startTime: Date.now(),
-			failures: 0
+			failures: 0,
 		};
 
-		logger.info(`Total profiles to process across all categories: ${allProfiles.total}`);
+		logger.info(
+			`Total profiles to process across all categories: ${allProfiles.total}`,
+		);
 
 		const updateGlobalProgress = () => {
 			allProfiles.processed++;
-			const progress = (allProfiles.processed / allProfiles.total * 100).toFixed(1);
+			const progress = (
+				(allProfiles.processed / allProfiles.total) *
+				100
+			).toFixed(1);
 			const elapsed = Date.now() - allProfiles.startTime;
-			const eta = Math.ceil((elapsed / allProfiles.processed) * (allProfiles.total - allProfiles.processed) / 1000);
+			const eta = Math.ceil(
+				((elapsed / allProfiles.processed) *
+					(allProfiles.total - allProfiles.processed)) /
+					1000,
+			);
 			const hours = Math.floor(eta / 3600);
 			const minutes = Math.floor((eta % 3600) / 60);
 
 			logger.info(
 				`Overall Progress: ${allProfiles.processed}/${allProfiles.total} (${progress}%) ` +
-				`ETA: ${hours}h ${minutes}m | Success Rate: ${((allProfiles.processed - allProfiles.failures) / allProfiles.processed * 100).toFixed(1)}%`
+					`ETA: ${hours}h ${minutes}m | Success Rate: ${(((allProfiles.processed - allProfiles.failures) / allProfiles.processed) * 100).toFixed(1)}%`,
 			);
 		};
 
@@ -1576,18 +1424,20 @@ async function scrapeProfiles(options: {
 				// Try cache first
 				const html = await parseProfileWithCache(url, type, !useCache);
 				const $ = cheerio.load(html);
-				const result = type === 'idol' ?
-					await extractIdolData($, url) :
-					await extractGroupData($, url);
+				const result =
+					type === "idol"
+						? await extractIdolData($, url)
+						: await extractGroupData($, url, gender); // Pass gender parameter
 
 				processed++;
 				updateGlobalProgress();
 				return result;
-
 			} catch (error) {
 				allProfiles.failures++;
 				updateGlobalProgress();
-				logger.error(`Failed to process ${url}: ${error.message}`);
+				logger.error(
+					`Failed to process ${url}: ${error instanceof Error ? error.message : String(error)}`,
+				);
 				return null;
 			}
 		};
@@ -1596,7 +1446,9 @@ async function scrapeProfiles(options: {
 		for (let i = 0; i < newUrls.length; i += batchSize) {
 			const batch = newUrls.slice(i, i + batchSize);
 			const batchResults = await Promise.all(batch.map(processUrl));
-			results.push(...batchResults.filter((r): r is Idol | Group => r !== null));
+			results.push(
+				...batchResults.filter((r): r is Idol | Group => r !== null),
+			);
 
 			// Save progress incrementally
 			if (results.length > 0) {
@@ -1607,9 +1459,10 @@ async function scrapeProfiles(options: {
 		}
 
 		return results;
-
 	} catch (error) {
-		logger.error(`Failed to scrape ${gender} ${type}s: ${error.message}`);
+		logger.error(
+			`Failed to scrape ${gender} ${type}s: ${error instanceof Error ? error.message : String(error)}`,
+		);
 		return [];
 	}
 }
@@ -1620,26 +1473,28 @@ function loadExistingData(): DataSet {
 		const groupsPath = PATHS.GROUPS_FILE;
 		const idolsPath = PATHS.IDOLS_FILE;
 
-		const groups = fs.existsSync(groupsPath) ?
-			JSON.parse(fs.readFileSync(groupsPath, 'utf-8')) : {};
-		const idols = fs.existsSync(idolsPath) ?
-			JSON.parse(fs.readFileSync(idolsPath, 'utf-8')) : {};
+		const groups = fs.existsSync(groupsPath)
+			? JSON.parse(fs.readFileSync(groupsPath, "utf-8"))
+			: {};
+		const idols = fs.existsSync(idolsPath)
+			? JSON.parse(fs.readFileSync(idolsPath, "utf-8"))
+			: {};
 
 		return {
 			femaleIdols: idols.femaleIdols || [],
 			maleIdols: idols.maleIdols || [],
 			girlGroups: groups.girlGroups || [],
 			boyGroups: groups.boyGroups || [],
-			coedGroups: groups.coedGroups || []
+			coedGroups: groups.coedGroups || [],
 		};
 	} catch (error) {
-		logger.warn('Failed to load existing data, starting fresh');
+		logger.warn("Failed to load existing data, starting fresh");
 		return {
 			femaleIdols: [],
 			maleIdols: [],
 			girlGroups: [],
 			boyGroups: [],
-			coedGroups: []
+			coedGroups: [],
 		};
 	}
 }
@@ -1650,46 +1505,46 @@ function getAllProfileUrls(dataset: DataSet): string[] {
 		...dataset.maleIdols,
 		...dataset.girlGroups,
 		...dataset.boyGroups,
-		...dataset.coedGroups
-	].map(profile => profile.profileUrl);
+		...dataset.coedGroups,
+	].map((profile) => profile.profileUrl);
 }
 
 async function saveIncrementalProgress(
 	results: (Idol | Group)[],
-	type: 'idol' | 'group',
-	gender: 'female' | 'male' | 'coed'
+	type: "idol" | "group",
+	gender: "female" | "male" | "coed",
 ): Promise<void> {
 	// Load existing dataset
 	const existingData = loadExistingData();
 
 	// Merge new results with existing data based on type and gender
-	if (type === 'idol') {
-		if (gender === 'female') {
+	if (type === "idol") {
+		if (gender === "female") {
 			existingData.femaleIdols = mergeProfiles(
 				existingData.femaleIdols,
-				results as Idol[]
+				results as Idol[],
 			);
 		} else {
 			existingData.maleIdols = mergeProfiles(
 				existingData.maleIdols,
-				results as Idol[]
+				results as Idol[],
 			);
 		}
 	} else {
-		if (gender === 'female') {
+		if (gender === "female") {
 			existingData.girlGroups = mergeProfiles(
 				existingData.girlGroups,
-				results as Group[]
+				results as Group[],
 			);
-		} else if (gender === 'male') {
+		} else if (gender === "male") {
 			existingData.boyGroups = mergeProfiles(
 				existingData.boyGroups,
-				results as Group[]
+				results as Group[],
 			);
 		} else {
 			existingData.coedGroups = mergeProfiles(
 				existingData.coedGroups,
-				results as Group[]
+				results as Group[],
 			);
 		}
 	}
@@ -1698,14 +1553,19 @@ async function saveIncrementalProgress(
 	await saveDataset(existingData);
 }
 
-function logProgress(processed: number, total: number, type: string, url: string): void {
-	const progress = (processed / total * 100).toFixed(1);
+function logProgress(
+	processed: number,
+	total: number,
+	type: string,
+	url: string,
+): void {
+	const progress = ((processed / total) * 100).toFixed(1);
 	const elapsed = Date.now() - startTime;
-	const eta = Math.ceil((elapsed / processed * (total - processed)) / 1000);
+	const eta = Math.ceil(((elapsed / processed) * (total - processed)) / 1000);
 
 	logger.info(
 		`[${type}] Progress: ${processed}/${total} (${progress}%) ` +
-		`ETA: ${eta}s - ${url}`
+			`ETA: ${eta}s - ${url}`,
 	);
 }
 
@@ -1721,17 +1581,17 @@ async function runDebugMode(options: {
 		maleIdols: [],
 		girlGroups: [],
 		boyGroups: [],
-		coedGroups: []
+		coedGroups: [],
 	};
 
-	logger.info('Starting debug mode scraping...');
+	logger.info("Starting debug mode scraping...");
 
 	const categories = [
-		{ type: 'group' as const, gender: 'female' as const },
-		{ type: 'group' as const, gender: 'male' as const },
-		{ type: 'group' as const, gender: 'coed' as const },
-		{ type: 'idol' as const, gender: 'female' as const },
-		{ type: 'idol' as const, gender: 'male' as const }
+		{ type: "group" as const, gender: "female" as const },
+		{ type: "group" as const, gender: "male" as const },
+		{ type: "group" as const, gender: "coed" as const },
+		{ type: "idol" as const, gender: "female" as const },
+		{ type: "idol" as const, gender: "male" as const },
 	];
 
 	for (const category of categories) {
@@ -1740,24 +1600,108 @@ async function runDebugMode(options: {
 			...category,
 			debug: true,
 			sampleSize: options.sampleSize,
-			useCache: options.useCache
+			useCache: options.useCache,
 		});
 
-		if (category.type === 'idol') {
-			if (category.gender === 'female') dataset.femaleIdols.push(...profiles as Idol[]);
-			else dataset.maleIdols.push(...profiles as Idol[]);
+		if (category.type === "idol") {
+			if (category.gender === "female")
+				dataset.femaleIdols.push(...(profiles as Idol[]));
+			else dataset.maleIdols.push(...(profiles as Idol[]));
 		} else {
-			if (category.gender === 'female') dataset.girlGroups.push(...profiles as Group[]);
-			else if (category.gender === 'male') dataset.boyGroups.push(...profiles as Group[]);
-			else dataset.coedGroups.push(...profiles as Group[]);
+			if (category.gender === "female")
+				dataset.girlGroups.push(...(profiles as Group[]));
+			else if (category.gender === "male")
+				dataset.boyGroups.push(...(profiles as Group[]));
+			else dataset.coedGroups.push(...(profiles as Group[]));
 		}
 
-		logger.info(`Waiting ${options.delayBetweenBatches}ms before next category`);
-		await delay(options.delayBetweenBatches);
+		// Only apply delay if not using cache
+		if (!options.useCache) {
+			logger.info(
+				`Waiting ${options.delayBetweenBatches}ms before next category`,
+			);
+			await delay(options.delayBetweenBatches);
+		}
 	}
 
-	logger.info('Saving dataset...');
+	logger.info("Saving dataset...");
 	await saveDataset(dataset);
-	logger.success('Debug mode scraping completed');
+	logger.success("Debug mode scraping completed");
 }
 
+function isInactiveStatus(statusText: string, content: string): boolean {
+	const inactiveKeywords = [
+		"disbanded",
+		"inactive",
+		"hiatus",
+		"terminated",
+		"retired",
+		"left industry",
+		"no longer active",
+		"graduation",
+		"withdraws",
+		"withdrawal",
+		"former member",
+		"left group",
+		"withdrew",
+		"disbanded group",
+		"ex-member",
+		"former artist",
+		"ended activities",
+		"left company",
+	];
+
+	// Convert to lowercase for case-insensitive matching
+	const lowerStatusText = statusText.toLowerCase();
+	const lowerContent = content.toLowerCase();
+
+	// Check if explicitly marked as inactive
+	if (
+		lowerStatusText.includes("inactive") ||
+		lowerStatusText.includes("disbanded")
+	) {
+		return true;
+	}
+
+	// Check if status mentions being a former member
+	if (lowerStatusText.includes("former") || lowerStatusText.includes("ex-")) {
+		return true;
+	}
+
+	// Check full content for disbandment/inactivity signs
+	for (const keyword of inactiveKeywords) {
+		if (lowerContent.includes(keyword)) {
+			return true;
+		}
+	}
+
+	// Check for phrases indicating past tense
+	const pastTensePhrases = [
+		"was a member",
+		"were members",
+		"used to be",
+		"previously in",
+		"formerly in",
+	];
+	if (pastTensePhrases.some((phrase) => lowerContent.includes(phrase))) {
+		return true;
+	}
+
+	// Check for disbandment dates
+	const disbandmentPattern = /disbanded\s+(?:on|in)\s+(\d{4})/i;
+	if (disbandmentPattern.test(lowerContent)) {
+		return true;
+	}
+
+	// Check specific DOM elements for status
+	const relevantContent = [
+		'.data-grid .equal:contains("Status:")',
+		'.data-grid .equal:contains("Current state:")',
+		'.group-info:contains("disbanded")',
+		'.profile-info:contains("former")',
+		'.member-status:contains("inactive")',
+	].join(" ");
+
+	// Assume active if no inactive indicators found
+	return false;
+}

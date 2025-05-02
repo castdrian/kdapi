@@ -4,13 +4,12 @@ K-pop Data API and Dataset Generator
 
 ## Description
 
-A TypeScript library that scrapes K-pop idol and group information from online sources to create comprehensive JSON datasets. The package collects data for:
+A TypeScript library that scrapes K-pop idol and group information from online sources to create comprehensive JSON datasets. The package provides:
 
-- Female idols
-- Male idols
-- Girl groups
-- Boy groups
-- Co-ed groups
+- Data scraping with caching
+- Fuzzy search functionality
+- TypeScript type definitions
+- Built-in dataset access
 
 ## Installation
 
@@ -18,81 +17,126 @@ A TypeScript library that scrapes K-pop idol and group information from online s
 bun add @melon/kdapi
 ```
 
-or
-
-```bash
-npm install @melon/kdapi
-```
-
 ## Usage
 
-### Running the scraper
+### Command Line Interface
 
-```typescript
-import { scrapeAll, saveData } from '@melon/kdapi';
+```bash
+# Run scraper in debug mode (5 samples per category)
+kdapi scrape --debug
 
-// Scrape data and get results
-const dataset = await scrapeAll();
+# Run full scraper with caching
+kdapi scrape --cache
 
-// Save to JSON files
-saveData(dataset);
+# Force refresh all profiles
+kdapi scrape --force
+
+# Configure batch size and delays
+kdapi scrape --batch-size 10 --delay 3000
 ```
 
-### Using pre-built datasets
+### Using the API
 
 ```typescript
-import { femaleIdols, maleIdols, girlGroups, boyGroups, coedGroups } from '@melon/kdapi/data';
+import { fuzzySearch, getItemById } from '@melon/kdapi';
 
-// Get a female idol by name
-const idol = femaleIdols.find(idol => idol.name === 'Jennie');
+// Search across idols and groups
+const results = fuzzySearch('jennie', {
+  type: 'all',      // 'idol' | 'group' | 'all'
+  limit: 10,        // Max results
+  threshold: 0.4    // Fuzzy match threshold
+});
 
-// Get all idols from a specific group
-const blackpinkMembers = femaleIdols.filter(idol => idol.group === 'BLACKPINK');
-
-// Get a group by name
-const bts = boyGroups.find(group => group.name === 'BTS');
+// Get specific idol/group by ID
+const item = getItemById('some-uuid');
 ```
 
 ## Data Structure
 
-### Idol Interface
+### Core Types
 
 ```typescript
-interface Idol {
-  id: string;           // Unique identifier
-  name: string;         // Idol's name
-  profileUrl: string;   // URL to the idol's profile
-  imageUrl?: string;    // URL to the idol's image
-  stageName?: string;   // Stage name if different from name
-  birthName?: string;   // Birth name
-  koreanName?: string;  // Korean name
-  birthday?: string;    // Birthday
-  nationality?: string; // Nationality
-  height?: string;      // Height
-  weight?: string;      // Weight
-  bloodType?: string;   // Blood type
-  mbti?: string;        // MBTI personality type
-  position?: string;    // Position in group
-  group?: string;       // Group affiliation
-  agency?: string;      // Entertainment agency
-  facts?: string[];     // Additional facts about the idol
+interface CoreProfile {
+  id: string;
+  profileUrl: string;
+  imageUrl: string | null;
+  active: boolean;
+  status: 'active' | 'inactive';
+  company: {
+    current: string | null;
+    history: Array<{
+      name: string;
+      period: {
+        start: string;
+        end?: string;
+      };
+    }>;
+  } | null;
+  socialMedia?: {
+    facebook?: string;
+    twitter?: string;
+    instagram?: string;
+    youtube?: string;
+    tiktok?: string;
+    spotify?: string;
+    website?: string;
+    fancafe?: string;
+    weibo?: string;
+    vlive?: string;
+  };
+  names: {
+    stage: string;
+    korean: string | null;
+    japanese: string | null;
+    chinese: string | null;
+  };
 }
-```
 
-### Group Interface
+interface Idol extends CoreProfile {
+  personalInfo?: {
+    mbti?: string;
+  };
+  physicalInfo?: {
+    mbti: string;
+    birthDate?: string;
+    zodiacSign?: string;
+    height?: number;
+    weight?: number;
+    bloodType?: 'A' | 'B' | 'O' | 'AB';
+  };
+  careerInfo?: {
+    debutDate?: string;
+    activeYears?: Array<{
+      start: string;
+      end?: string;
+    }>;
+  };
+  groups?: Array<{
+    name: string;
+    status: 'current' | 'former';
+    period?: {
+      start: string;
+      end?: string;
+    };
+  }>;
+}
 
-```typescript
-interface Group {
-  id: string;           // Unique identifier
-  name: string;         // Group's name
-  profileUrl: string;   // URL to the group's profile
-  imageUrl?: string;    // URL to the group's image
-  koreanName?: string;  // Korean name
-  debutDate?: string;   // Debut date
-  fandomName?: string;  // Fandom name
-  agency?: string;      // Entertainment agency
-  members?: string[];   // Group members
-  facts?: string[];     // Additional facts about the group
+interface Group extends CoreProfile {
+  type: 'girl' | 'boy' | 'coed';
+  memberHistory: {
+    currentMembers: Array<{
+      name: string;
+      profileUrl: string;
+    }>;
+    formerMembers: Array<{
+      name: string;
+      profileUrl: string;
+    }>;
+  };
+  groupInfo?: {
+    debutDate?: string;
+    disbandmentDate?: string;
+  };
 }
 ```
 
@@ -100,31 +144,34 @@ interface Group {
 
 ### Prerequisites
 
-- Bun or Node.js
+- Bun
 - TypeScript
 
 ### Setup
 
-1. Clone the repository
-2. Install dependencies:
-
 ```bash
+# Clone the repository
+git clone https://github.com/your-username/melon-kdapi.git
+
+# Install dependencies
 bun install
+
+# Run scraper in debug mode
+bun run cli.ts scrape --debug
 ```
 
-### Running the scraper in debug mode
+### Cache Management
 
-```bash
-bun run index.ts
-```
+HTML responses are cached in:
 
-This will scrape a limited number of entries (default: 5 per category) for testing purposes.
+- `/cache/idols/` - Idol profile pages
+- `/cache/groups/` - Group profile pages
 
-### Building the package
+Data is saved to:
 
-```bash
-bun build
-```
+- `/data/idols.json` - Idol data
+- `/data/groups.json` - Group data
+- `/data/metadata.json` - Dataset statistics
 
 ## License
 

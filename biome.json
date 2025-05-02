@@ -1,0 +1,135 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "extends": [],
+  "files": {
+    "maxSize": 1048576,
+    "ignore": [],
+    "include": [],
+    "ignoreUnknown": false
+  },
+  "vcs": {
+    "enabled": false,
+    "clientKind": "git",
+    "useIgnoreFile": false,
+    "root": "",
+    "defaultBranch": "main"
+  },
+  "linter": {
+    "enabled": true,
+    "ignore": [],
+    "include": [],
+    "rules": {
+      "recommended": true,
+      "all": false,
+      "a11y": {
+        "recommended": true,
+        "all": false
+      },
+      "complexity": {
+        "recommended": true,
+        "all": false
+      },
+      "correctness": {
+        "recommended": true,
+        "all": false
+      },
+      "nursery": {
+        "recommended": true,
+        "all": false
+      },
+      "performance": {
+        "recommended": true,
+        "all": false
+      },
+      "security": {
+        "recommended": true,
+        "all": false
+      },
+      "style": {
+        "recommended": true,
+        "all": false
+      },
+      "suspicious": {
+        "recommended": true,
+        "all": false
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "ignore": [],
+    "include": [],
+    "formatWithErrors": false,
+    "indentStyle": "tab",
+    "indentWidth": 2,
+    "lineWidth": 80,
+    "lineEnding": "lf",
+    "attributePosition": "auto",
+    "useEditorconfig": false
+  },
+  "organizeImports": {
+    "enabled": true,
+    "ignore": [],
+    "include": []
+  },
+  "javascript": {
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": false
+    },
+    "formatter": {
+      "quoteStyle": "double",
+      "jsxQuoteStyle": "double",
+      "quoteProperties": "asNeeded",
+      "trailingCommas": "all",
+      "semicolons": "always",
+      "arrowParentheses": "always",
+      "enabled": true,
+      "indentStyle": "tab",
+      "indentWidth": 2,
+      "lineEnding": "lf",
+      "lineWidth": 80,
+      "bracketSameLine": false,
+      "bracketSpacing": true,
+      "attributePosition": "auto"
+    },
+    "globals": [],
+    "jsxRuntime": "transparent",
+    "linter": {
+      "enabled": true
+    }
+  },
+  "json": {
+    "parser": {
+      "allowComments": false,
+      "allowTrailingCommas": false
+    },
+    "formatter": {
+      "enabled": true,
+      "indentStyle": "tab",
+      "indentWidth": 2,
+      "lineEnding": "lf",
+      "lineWidth": 80,
+      "trailingCommas": "none"
+    },
+    "linter": {
+      "enabled": true
+    }
+  },
+  "css": {
+    "parser": {
+      "cssModules": false
+    },
+    "formatter": {
+      "enabled": false,
+      "indentStyle": "tab",
+      "indentWidth": 2,
+      "lineEnding": "lf",
+      "lineWidth": 80,
+      "quoteStyle": "double"
+    },
+    "linter": {
+      "enabled": false
+    }
+  },
+  "overrides": []
+}
