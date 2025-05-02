@@ -1,4 +1,4 @@
-# @melon/kdapi
+# kdapi
 
 K-pop Data API and Dataset Generator
 
@@ -14,7 +14,7 @@ A TypeScript library that scrapes K-pop idol and group information from online s
 ## Installation
 
 ```bash
-bun add @melon/kdapi
+bun add kdapi
 ```
 
 ## Usage
@@ -38,7 +38,7 @@ kdapi scrape --batch-size 10 --delay 3000
 ### Using the API
 
 ```typescript
-import { fuzzySearch, getItemById } from '@melon/kdapi';
+import { fuzzySearch, getItemById } from 'kdapi';
 
 // Search across idols and groups
 const results = fuzzySearch('jennie', {

@@ -1,5 +1,5 @@
 {
-  "name": "@melon/kdapi",
+  "name": "kdapi",
   "module": "src/index.ts",
   "type": "module",
   "description": "Korean idol and group profiles dataset generator",
