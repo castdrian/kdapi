@@ -8,6 +8,9 @@
 		],
 		"allowJs": true,
 		"strict": true,
+		"noEmit": true,
+		"allowImportingTsExtensions": true,
+		"skipLibCheck": true,
 		"noUncheckedIndexedAccess": true,
 		"baseUrl": ".",
 		"paths": {
