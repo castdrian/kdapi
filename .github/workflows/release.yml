@@ -100,7 +100,6 @@ jobs:
           (github.event_name == 'workflow_dispatch' && 
            inputs.force_release == 'true')
         run: |
-          bun run build
           bun publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

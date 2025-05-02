@@ -1,9 +1,10 @@
 {
   "name": "@castdrian/kdapi",
-  "module": "src/index.ts",
+  "version": "0.1.1",
   "type": "module",
-  "description": "Korean idol and group profiles dataset generator",
-  "version": "0.1.0",
+  "description": "kpop idol and group profiles dataset generator",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
@@ -12,16 +13,15 @@
     "url": "git+https://github.com/castdrian/kdapi.git"
   },
   "files": [
-    "src",
-    "data",
-    "*.json",
-    "*.toml"
+    "dist",
+    "data"
   ],
   "scripts": {
     "scrape:debug": "bun src/cli.ts scrape -d -s 20 --delay 2000 --cache",
     "scrape:prod": "bun src/cli.ts scrape --delay 4000 --batch-size 5 --cache",
     "scrape:force": "bun src/cli.ts scrape --delay 4000 --batch-size 5 --force",
-    "build": "bun build ./src/index.ts --outdir ./dist --target node"
+    "build": "bun build ./src/index.ts --outdir ./dist --target node && tsc --emitDeclarationOnly --outDir dist",
+    "prepublishOnly": "bun run build"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -19,7 +19,9 @@
 			]
 		},
 		"outDir": "dist",
-		"rootDir": "src"
+		"rootDir": "src",
+		"declaration": true,
+		"emitDeclarationOnly": true
 	},
 	"include": [
 		"src/**/*"
