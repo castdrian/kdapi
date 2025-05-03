@@ -38,7 +38,7 @@ kdapi scrape --batch-size 10 --delay 3000
 ### Using the API
 
 ```typescript
-import { fuzzySearch, getItemById } from 'kdapi';
+import { fuzzySearch, getItemById } from '@castdrian/kdapi';
 
 // Search across idols and groups
 const results = fuzzySearch('jennie', {
@@ -151,7 +151,7 @@ interface Group extends CoreProfile {
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/melon-kdapi.git
+git clone https://github.com/castdrian/kdapi.git
 
 # Install dependencies
 bun install
