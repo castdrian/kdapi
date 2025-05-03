@@ -5,17 +5,17 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { CacheManager } from "@src/cache";
 import {
+	BloodType,
 	type DataSet,
-	Position,
 	type SocialMedia,
 	type CoreProfile,
 	type Group,
 	type Idol,
-	IdolStatus,
-	GroupStatus,
-	type BloodType,
+	Status,
 	type GroupMember,
 	GroupType,
+	type IdolNames,
+	type GroupNames,
 } from "@src/types";
 
 export { runDebugMode, runProductionMode, scrapeProfiles };
@@ -131,57 +131,11 @@ function cleanText(text: string): string {
 		.replace(/['′]/g, "'");
 }
 
-function parsePositions(text: string): Position[] {
-	const positionMap: Record<string, Position> = {
-		leader: Position.Leader,
-		"main vocal": Position.MainVocalist,
-		"main vocalist": Position.MainVocalist,
-		"lead vocal": Position.LeadVocalist,
-		"lead vocalist": Position.LeadVocalist,
-		vocal: Position.Vocalist,
-		vocalist: Position.Vocalist,
-		"main rap": Position.MainRapper,
-		"main rapper": Position.MainRapper,
-		"lead rap": Position.LeadRapper,
-		"lead rapper": Position.LeadRapper,
-		rap: Position.Rapper,
-		rapper: Position.Rapper,
-		"main dance": Position.MainDancer,
-		"main dancer": Position.MainDancer,
-		"lead dance": Position.LeadDancer,
-		"lead dancer": Position.LeadDancer,
-		dance: Position.Dancer,
-		dancer: Position.Dancer,
-		visual: Position.Visual,
-		center: Position.Center,
-		face: Position.FaceOfGroup,
-		"face of the group": Position.FaceOfGroup,
-		maknae: Position.Maknae,
-		youngest: Position.Maknae,
-	};
-
+// Add this helper function
+function cleanupText(text: string): string {
 	return text
-		.toLowerCase()
-		.split(/[,/&、]/)
-		.map((p) => {
-			const cleaned = p
-				.trim()
-				.replace(/\([^)]*\)/g, "")
-				.replace(/^(is|was)\s+/i, "")
-				.replace(/\s+position$/i, "");
-
-			if (positionMap[cleaned]) {
-				return positionMap[cleaned];
-			}
-
-			for (const [key, value] of Object.entries(positionMap)) {
-				if (cleaned.includes(key)) {
-					return value;
-				}
-			}
-			return null;
-		})
-		.filter((p): p is Position => p !== null);
+		.replace(/\s+/g, " ") // Replace multiple spaces/newlines with single space
+		.trim();
 }
 
 // Rate limiting token bucket
@@ -518,10 +472,10 @@ function extractDateFromText(text: string): string | null {
 
 function extractCompanyInfo(
 	$: cheerio.CheerioAPI,
-): NonNullable<CoreProfile["company"]> {
-	const company: NonNullable<CoreProfile["company"]> = {
-		current: null,
-		history: [],
+): { current: string | null; history: Array<{ name: string; period: { start: string; end?: string } }> } {
+	const company = {
+		current: null as string | null,
+		history: [] as Array<{ name: string; period: { start: string; end?: string } }>,
 	};
 
 	// Get current company from data grid - clean up colons
@@ -545,26 +499,180 @@ function extractCompanyInfo(
 			.text()
 			.trim()
 			.replace(/[:：]\s*$/, ""); // Remove trailing colons
-		const periodText = $cell.find(".value").text().trim();
 
+		const periodText = $cell.find(".period").text().trim();
+		const parsedPeriod = parsePeriod(periodText);
 		if (!name || name === "-") return;
 
-		const period = parsePeriod(periodText);
-		if (period) {
-			company.history = company.history || [];
+		if (name && parsedPeriod) {
 			company.history.push({
 				name,
-				period,
+				period: parsedPeriod
 			});
+		}
 
-			// If no current company set and this period has no end date, use as current
-			if (!company.current && !period.end) {
-				company.current = name;
-			}
+		// If no current company set, use the first company as current
+		if (!company.current) {
+			company.current = name;
 		}
 	});
 
 	return cleanupUndefined(company);
+}
+
+function parseDescription($: cheerio.CheerioAPI): string | undefined {
+	const description = $('meta[name="description"]').attr("content");
+	return description ? cleanText(description) : undefined;
+}
+
+function parseLocation($: cheerio.CheerioAPI): {
+	hometown?: string;
+	country?: { name: string; code: string };
+} {
+	const locationData = {
+		hometown: undefined as string | undefined,
+		country: undefined as { name: string; code: string } | undefined,
+	};
+
+	// Find hometown
+	$(".data-grid .equal").each((_, el) => {
+		const $el = $(el);
+		const label = $el.find("strong").text().trim();
+		if (label === "Hometown:") {
+			locationData.hometown = cleanText($el.find("p").text());
+		} else if (label === "Country:") {
+			const countryName = cleanText($el.find("p").text());
+			const countryCode = $el
+				.find(".flag-icon")
+				.attr("class")
+				?.match(/flag-icon-(\w+)/)?.[1];
+			if (countryName && countryCode) {
+				locationData.country = {
+					name: countryName,
+					code: countryCode.toLowerCase(),
+				};
+			}
+		}
+	});
+
+	return locationData;
+}
+
+function parseNames($: cheerio.CheerioAPI): IdolNames {
+	const names: IdolNames = {
+		stage: "",
+		korean: null,
+		japanese: null,
+		chinese: null,
+		full: null, // Initialize with null
+		native: null, // Initialize with null
+	};
+
+	// Extract stage name safely
+	const h1Text = $("h1").first().contents().first().text();
+	names.stage = cleanText(h1Text) || "";
+
+	// Find full and native names
+	$(".data-grid .equal").each((_, el) => {
+		const $el = $(el);
+		const label = cleanText($el.find("strong").text());
+		const value = cleanText($(el).next(".equal").text());
+
+		if (!label || !value) return;
+
+		if (label === "Full name:") {
+			names.full = value;
+		} else if (label === "Native name:") {
+			names.native = value;
+		}
+	});
+
+	// Extract other names from defined-terms
+	$("h2 .native-name").each((_, el) => {
+		const $el = $(el);
+		const dfnText = cleanText(
+			$el.find("dfn").text().toLowerCase().replace(":", ""),
+		);
+		const nameText = cleanText($el.text().replace($el.find("dfn").text(), ""));
+
+		if (!dfnText || !nameText) return;
+
+		if (dfnText.includes("korean")) names.korean = nameText;
+		else if (dfnText.includes("japanese")) names.japanese = nameText;
+		else if (dfnText.includes("chinese")) names.chinese = nameText;
+	});
+
+	return names;
+}
+
+function parseBirthday($: cheerio.CheerioAPI): string | undefined {
+	let birthDate: string | undefined;
+
+	$(".data-grid .equal").each((_, el) => {
+		const $el = $(el);
+		const label = $el.find("strong").text().trim();
+		if (label === "Birthday:") {
+			const dateText = $el.next(".equal").find("a").text().trim();
+			// Parse date like "Aug 9, 1989" into ISO format
+			try {
+				const date = new Date(dateText);
+				if (!Number.isNaN(date.getTime())) {
+					birthDate = date.toISOString().split("T")[0];
+				}
+			} catch (e) {
+				logger.error(`Failed to parse birthday: ${dateText}`);
+			}
+		}
+	});
+
+	return birthDate;
+}
+
+function parseBloodType(text: string): BloodType | undefined {
+	const bloodTypeMap: Record<string, BloodType> = {
+		A: BloodType.A,
+		B: BloodType.B,
+		O: BloodType.O,
+		AB: BloodType.AB,
+		// Add variations
+		"A+": BloodType.A,
+		"A-": BloodType.A,
+		"B+": BloodType.B,
+		"B-": BloodType.B,
+		"O+": BloodType.O,
+		"O-": BloodType.O,
+		"AB+": BloodType.AB,
+		"AB-": BloodType.AB,
+	};
+
+	const cleanedType = text.trim().toUpperCase();
+	return bloodTypeMap[cleanedType];
+}
+
+function extractPhysicalInfo(
+	$: cheerio.CheerioAPI,
+): NonNullable<Idol["physicalInfo"]> {
+	const info: NonNullable<Idol["physicalInfo"]> = {};
+
+	$(".data-grid .equal").each((_, el) => {
+		const $el = $(el);
+		const label = $el.find("strong").text().trim();
+		const value = cleanText($el.next(".equal").text());
+
+		if (label === "Blood type:") {
+			try {
+				const bloodType = parseBloodType(value);
+				if (bloodType) {
+					info.bloodType = bloodType;
+				}
+			} catch (error) {
+				logger.warn(`Failed to parse blood type: ${value}`);
+			}
+		}
+		// ... rest of the physical info parsing
+	});
+
+	return info;
 }
 
 async function extractGroupData(
@@ -581,27 +689,32 @@ async function extractGroupData(
 					? GroupType.Boy
 					: GroupType.Coed,
 		profileUrl: url,
-		imageUrl: extractImageUrl($) || null,
+		imageUrl: extractImageUrl($) || "",
 		active: false,
-		status: GroupStatus.Inactive,
+		status: Status.Inactive,
 		company: extractCompanyInfo($) || null,
 		socialMedia: extractSocialMediaLinks($),
 		memberHistory: {
 			currentMembers: [],
 			formerMembers: [],
 		},
-		names: {
-			stage: "",
-			korean: null as string | null, // Allow both string and null
-			japanese: null as string | null, // Allow both string and null
-			chinese: null as string | null,
+		groupInfo: {
+			debutDate: null,
+			disbandmentDate: null,
+			names: {
+				stage: null,
+				korean: null,
+				japanese: null,
+				chinese: null
+			},
+			fandomName: extractFandomName($) || null,
 		},
 	};
 
 	// Enhanced group name extraction
-	const names = {
-		stage: "",
-		korean: null as string | null, // Allow both string and null
+	const names: GroupNames = {
+		stage: null as string | null,
+		korean: null as string | null,
 		japanese: null as string | null,
 		chinese: null as string | null,
 	};
@@ -654,7 +767,7 @@ async function extractGroupData(
 		});
 	}
 
-	group.names = cleanupUndefined(names);
+	group.groupInfo.names = cleanupUndefined(names);
 
 	// Enhanced status detection
 	const statusText = $(
@@ -666,7 +779,7 @@ async function extractGroupData(
 	const profileContent = `${$(".profile-content").text()} ${$(".data-grid").text()}`;
 
 	group.active = !isInactiveStatus(statusText, profileContent);
-	group.status = group.active ? GroupStatus.Active : GroupStatus.Inactive;
+	group.status = group.active ? Status.Active : Status.Inactive;
 
 	// Extract debut date
 	const debutCell = $('.data-grid .equal:contains("Debut:")');
@@ -674,7 +787,17 @@ async function extractGroupData(
 		const debutText = debutCell.next().text().trim();
 		const debutDate = normalizeDate(debutText);
 		if (debutDate) {
-			if (!group.groupInfo) group.groupInfo = {};
+			if (!group.groupInfo) group.groupInfo = {
+				debutDate: null,
+				disbandmentDate: null,
+				names: {
+					stage: null,
+					korean: null,
+					japanese: null,
+					chinese: null
+				},
+				fandomName: null
+			};
 			group.groupInfo.debutDate = debutDate;
 		}
 	}
@@ -696,11 +819,31 @@ async function extractGroupData(
 		if (disbandmentText) {
 			const disbandmentDate = normalizeDate(disbandmentText);
 			if (disbandmentDate) {
-				if (!group.groupInfo) group.groupInfo = {};
+				if (!group.groupInfo) group.groupInfo = {
+					debutDate: null,
+					disbandmentDate: null,
+					names: {
+						stage: null,
+						korean: null,
+						japanese: null,
+						chinese: null
+					},
+					fandomName: null
+				};
 				group.groupInfo.disbandmentDate = disbandmentDate;
 			}
 		}
 	}
+
+	// Extract fandom name
+	const fandom =
+		$(".data-grid .equal")
+			.filter((_, el) => {
+				return $(el).find("strong").text().trim() === "Fandom:";
+			})
+			.next(".equal")
+			.text()
+			.trim() || undefined;
 
 	// Extract member history with positions
 	const memberHistory = {
@@ -748,74 +891,52 @@ async function extractGroupData(
 		) as { name: string; profileUrl: string }[],
 	};
 
-	return cleanupUndefined(group);
+	return cleanupUndefined({ ...group, fandom });
 }
 
-async function extractIdolData(
+function extractFandomName($: cheerio.CheerioAPI): string | null {
+	const fandomCell = $(".data-grid .cell").filter((_, el) =>
+		$(el).text().toLowerCase().includes("fandom"),
+	);
+
+	if (fandomCell.length) {
+		const fandomValue = fandomCell.find(".value").text();
+		return fandomValue ? cleanupText(fandomValue) : null;
+	}
+
+	return null;
+}
+
+async function parseIdolProfile(
 	$: cheerio.CheerioAPI,
 	url: string,
 ): Promise<Idol> {
+	const description = parseDescription($);
+	const location = parseLocation($);
+	const names = parseNames($);
+	const birthDate = parseBirthday($);
+	const bloodTypeText = $('.data-grid .equal:contains("Blood type:")')
+		.next()
+		.text()
+		.trim();
+	const bloodType = parseBloodType(bloodTypeText);
+
 	const idol: Idol = {
 		id: uuidv4(),
 		profileUrl: url,
 		imageUrl: extractImageUrl($) || null,
 		active: false,
-		status: IdolStatus.Inactive,
+		status: Status.Inactive,
 		company: extractCompanyInfo($) || null,
 		socialMedia: extractSocialMediaLinks($),
-		names: {
-			stage: "",
-			korean: null,
-			japanese: null,
-			chinese: null,
+		names,
+		description,
+		country: location.country,
+		physicalInfo: {
+			birthDate,
+			bloodType,
 		},
 	};
-
-	// Enhanced idol name extraction
-	const names = {
-		stage: "",
-		korean: null as string | null,
-		japanese: null as string | null,
-		chinese: null as string | null,
-	};
-
-	// Get stage name from h1
-	names.stage =
-		$("h1").first().text()?.trim().split(/[([]/, 1)[0]?.trim() ?? "";
-
-	// First try schema data - it often has the most complete native names
-	try {
-		const schemaScript = $('script[type="application/ld+json"]').first().text();
-		const schemaData = JSON.parse(schemaScript);
-
-		// Names are stored in sameAs field, comma separated
-		if (schemaData.sameAs) {
-			const [_, korean, japanese, chinese] = schemaData.sameAs.split(",");
-			if (korean) names.korean = korean.trim();
-			if (japanese) names.japanese = japanese.trim();
-			if (chinese) names.chinese = chinese.trim();
-		}
-	} catch (e) {
-		// Schema parse failed, continue with HTML parsing
-	}
-
-	// Extract names from profile text as backup
-	$(
-		'.profile-names .name, .native-name, .data-grid .equal:contains("Birth name:")',
-	).each((_, el) => {
-		const $el = $(el);
-		const type = $el.find("dfn, .type").text().toLowerCase();
-		const text = cleanText($el.text().replace(/^[^:：]*[:：]?\s*/, ""));
-
-		if (!text || text === "-") return;
-
-		if (type.includes("korean")) names.korean = text;
-		else if (type.includes("japanese")) names.japanese = text;
-		else if (type.includes("chinese")) names.chinese = text;
-	});
-
-	// Assign names to idol object
-	idol.names = cleanupUndefined(names);
 
 	// Enhanced status detection
 	const statusText = $(
@@ -827,7 +948,7 @@ async function extractIdolData(
 	const profileContent = `${$(".profile-content").text()} ${$(".data-grid").text()}`;
 
 	idol.active = !isInactiveStatus(statusText, profileContent);
-	idol.status = idol.active ? IdolStatus.Active : IdolStatus.Inactive;
+	idol.status = idol.active ? Status.Active : Status.Inactive;
 
 	// Extract personal info with MBTI
 	const personalInfo = extractIdolPersonalInfo($);
@@ -838,7 +959,7 @@ async function extractIdolData(
 	// Extract physical info
 	const physicalInfo = extractPhysicalInfo($);
 	if (Object.keys(physicalInfo).length > 0) {
-		idol.physicalInfo = physicalInfo;
+		idol.physicalInfo = { ...idol.physicalInfo, ...physicalInfo };
 	}
 
 	// Extract career info
@@ -878,89 +999,6 @@ async function extractIdolData(
 	}
 
 	return cleanupUndefined(idol);
-}
-
-function extractPhysicalInfo(
-	$: cheerio.CheerioAPI,
-): NonNullable<Idol["physicalInfo"]> {
-	const info: NonNullable<Idol["physicalInfo"]> = {};
-
-	// Extract birth date
-	const birthCell = $('.data-grid .equal:contains("Birthday:")');
-	if (birthCell.length) {
-		const birthText = birthCell.next().text().trim();
-		const date = extractDateFromText(birthText);
-		if (date) {
-			info.birthDate = date;
-			info.zodiacSign = calculateZodiacSign(date);
-		}
-	}
-
-	// Height
-	const heightText = $('.data-grid .equal:contains("Height:")').next().text();
-	const heightMatch = heightText.match(/(\d+)\s*cm/);
-	if (heightMatch) info.height = Number.parseInt(heightMatch[1] ?? "0");
-
-	// Weight
-	const weightText = $('.data-grid .equal:contains("Weight:")').next().text();
-	const weightMatch = weightText.match(/(\d+)\s*kg/);
-	if (weightMatch) info.weight = Number.parseInt(weightMatch[1] ?? "0");
-
-	// Blood Type
-	const bloodText = $('.data-grid .equal:contains("Blood type:")')
-		.next()
-		.text()
-		.trim()
-		.toUpperCase();
-	if (["A", "B", "AB", "O"].includes(bloodText)) {
-		info.bloodType = bloodText as BloodType;
-	}
-
-	return cleanupUndefined(info);
-}
-
-function extractMemberInfo(
-	$: cheerio.CheerioAPI,
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-	element: any,
-): GroupMember | null {
-	const $member = $(element);
-	const name = cleanText(
-		$member.find(".name strong").text() || $member.find(".name").text(),
-	);
-	if (!name) return null;
-
-	const href = $member.attr("href") || $member.find("a").attr("href") || "";
-	const member: GroupMember = {
-		name,
-		profileUrl: href.startsWith("http") ? href : `${BASE_URL}${href}`,
-	};
-
-	if (!href) {
-		return null; // Skip members without valid URLs
-	}
-
-	// Extract positions from various possible locations
-	const positionText =
-		$member.find('p:contains("Position:")').text() ||
-		$member.find(".position").text() ||
-		$member.parent().next(".position").text();
-	if (positionText) {
-		const positions = parsePositions(positionText.replace("Position:", ""));
-		if (positions.length > 0) member.position = positions;
-	}
-
-	// Extract period
-	const periodText =
-		$member.find(".period").text() ||
-		$member.find(".dates").text() ||
-		$member.parent().next(".dates").text();
-	if (periodText) {
-		const period = parsePeriod(periodText);
-		if (period) member.period = period;
-	}
-
-	return member;
 }
 
 function extractIdolCareerInfo(
@@ -1426,7 +1464,7 @@ async function scrapeProfiles(options: {
 				const $ = cheerio.load(html);
 				const result =
 					type === "idol"
-						? await extractIdolData($, url)
+						? await parseIdolProfile($, url)
 						: await extractGroupData($, url, gender); // Pass gender parameter
 
 				processed++;

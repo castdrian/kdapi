@@ -1,47 +1,26 @@
 // Types for K-pop idols and groups
 
 //---------------------------
-// Enums for better type safety
+// Enums and Types for better type safety
 //---------------------------
 
-export enum IdolStatus {
+export enum Status {
 	Active = "active",
 	Inactive = "inactive",
-}
-
-export enum GroupStatus {
-	Active = "active",
-	Inactive = "inactive",
-}
-
-export enum BloodType {
-	A = "A",
-	B = "B",
-	O = "O",
-	AB = "AB",
-}
-
-export enum Position {
-	Leader = "leader",
-	MainVocalist = "main vocalist",
-	LeadVocalist = "lead vocalist",
-	Vocalist = "vocalist",
-	MainRapper = "main rapper",
-	LeadRapper = "lead rapper",
-	Rapper = "rapper",
-	MainDancer = "main dancer",
-	LeadDancer = "lead dancer",
-	Dancer = "dancer",
-	Visual = "visual",
-	Center = "center",
-	FaceOfGroup = "face of group",
-	Maknae = "maknae",
 }
 
 export enum GroupType {
 	Girl = "girl",
 	Boy = "boy",
 	Coed = "coed",
+}
+
+export enum BloodType {
+	A = "A",
+	B = "B",
+	AB = "AB",
+	O = "O",
+	Unknown = "Unknown",
 }
 
 //---------------------------
@@ -61,21 +40,28 @@ export interface SocialMedia {
 	vlive?: string;
 }
 
-export interface CompanyHistory {
-	name: string;
-	period: {
-		start: string;
-		end?: string;
-	};
-}
-
 export interface Company {
 	current: string | null;
-	history: CompanyHistory[];
+	history: Array<{
+		name: string;
+		period: {
+			start: string;
+			end?: string;
+		};
+	}>;
 }
 
-export interface Names {
-	stage: string;
+export interface IdolNames {
+	stage: string | null;
+	full: string | null;
+	native: string | null;
+	korean: string | null;
+	japanese: string | null;
+	chinese: string | null;
+}
+
+export interface GroupNames {
+	stage: string | null;
 	korean: string | null;
 	japanese: string | null;
 	chinese: string | null;
@@ -86,10 +72,18 @@ export interface CoreProfile {
 	profileUrl: string;
 	imageUrl: string | null;
 	active: boolean;
-	status: IdolStatus | GroupStatus;
-	company: Company | null;
-	socialMedia?: SocialMedia;
-	names: Names;
+	status: Status;
+	company: {
+		current: string | null;
+		history: Array<{
+			name: string;
+			period: {
+				start: string;
+				end?: string;
+			};
+		}>;
+	} | null;
+	socialMedia: SocialMedia;
 }
 
 //---------------------------
@@ -97,7 +91,7 @@ export interface CoreProfile {
 //---------------------------
 
 export interface PhysicalInfo {
-	birthDate?: string;
+	birthDate?: string; // ISO 8601 format
 	zodiacSign?: string;
 	height?: number;
 	weight?: number;
@@ -123,11 +117,6 @@ export interface CareerInfo {
 export interface GroupMember {
 	name: string;
 	profileUrl: string;
-	position?: Position[];
-	period?: {
-		start: string;
-		end?: string;
-	};
 }
 
 //---------------------------
@@ -144,10 +133,16 @@ export interface GroupActivity {
 }
 
 export interface Idol extends CoreProfile {
+	names: IdolNames; // Override with idol-specific names
+	description?: string;
 	personalInfo?: PersonalInfo;
 	physicalInfo?: PhysicalInfo;
 	careerInfo?: CareerInfo;
 	groups?: GroupActivity[];
+	country?: {
+		name: string;
+		code: string;
+	};
 }
 
 //---------------------------
@@ -155,27 +150,46 @@ export interface Idol extends CoreProfile {
 //---------------------------
 
 export interface GroupInfo {
-	debutDate?: string;
-	disbandmentDate?: string;
+	debutDate: string | null;
+	disbandmentDate: string | null;
+	names: GroupNames;
+	fandomName: string | null;
 }
 
-export interface Group extends CoreProfile {
+export interface MemberHistory {
+	currentMembers: GroupMember[];
+	formerMembers?: GroupMember[];
+}
+
+export interface Group {
+	id: string;
 	type: GroupType;
-	memberHistory: {
-		currentMembers: GroupMember[];
-		formerMembers: GroupMember[];
-	};
-	groupInfo?: GroupInfo;
+	profileUrl: string;
+	imageUrl: string;
+	active: boolean;
+	status: Status;
+	company: Company | null;
+	socialMedia?: SocialMedia;
+	memberHistory: MemberHistory;
+	groupInfo: GroupInfo;
 }
 
 //---------------------------
 // Dataset type
 //---------------------------
 
-export interface DataSet {
-	femaleIdols: Idol[];
-	maleIdols: Idol[];
+export interface GroupsData {
 	girlGroups: Group[];
 	boyGroups: Group[];
 	coedGroups: Group[];
+}
+
+export interface IdolsData {
+	femaleIdols: Idol[];
+	maleIdols: Idol[];
+}
+
+export interface DataSet extends GroupsData {
+	femaleIdols: Idol[];
+	maleIdols: Idol[];
 }

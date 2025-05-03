@@ -1,18 +1,16 @@
-import type { Idol, Group, DataSet } from "@src/types";
-import groups from "@root/data/groups.json";
-import idols from "@root/data/idols.json";
+import type { Idol, Group, DataSet, GroupsData, IdolsData } from "@src/types";
+import groups from "@root/data/groups.json" assert { type: "json" };
+import idols from "@root/data/idols.json" assert { type: "json" };
 import Fuse from "fuse.js";
 
-// Combined dataset with proper typing
 const dataset: DataSet = {
-	femaleIdols: idols.femaleIdols as Idol[],
-	maleIdols: idols.maleIdols as Idol[],
-	girlGroups: groups.girlGroups as Group[],
-	boyGroups: groups.boyGroups as Group[],
-	coedGroups: groups.coedGroups as unknown as Group[],
+	femaleIdols: (idols as IdolsData).femaleIdols,
+	maleIdols: (idols as IdolsData).maleIdols,
+	girlGroups: (groups as GroupsData).girlGroups,
+	boyGroups: (groups as GroupsData).boyGroups,
+	coedGroups: (groups as GroupsData).coedGroups,
 };
 
-// Fuse.js options for fuzzy search
 const searchOptions = {
 	includeScore: true,
 	threshold: 0.4,
@@ -21,6 +19,8 @@ const searchOptions = {
 		"names.korean",
 		"names.japanese",
 		"names.chinese",
+		"names.full",
+		"names.native",
 		"company.current",
 		"company.history.name",
 	],
@@ -103,4 +103,15 @@ export function getItemById(
 }
 
 // Export types for external use
-export type { Idol, Group, DataSet } from "@src/types";
+export type {
+	Idol,
+	DataSet,
+	GroupType,
+	Company,
+	SocialMedia,
+	GroupNames,
+	GroupInfo,
+	MemberHistory,
+	Group,
+	GroupsData,
+} from "@src/types";

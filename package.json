@@ -1,6 +1,6 @@
 {
   "name": "@castdrian/kdapi",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "description": "kpop idol and group profiles dataset generator",
   "main": "dist/index.js",
@@ -17,7 +17,7 @@
     "data"
   ],
   "scripts": {
-    "scrape:debug": "bun src/cli.ts scrape -d -s 20 --delay 2000 --cache",
+    "scrape:debug": "bun src/cli.ts scrape -d -s 200 --delay 2000 --cache",
     "scrape:prod": "bun src/cli.ts scrape --delay 4000 --batch-size 5 --cache",
     "scrape:force": "bun src/cli.ts scrape --delay 4000 --batch-size 5 --force",
     "build": "bun build ./src/index.ts --outdir ./dist --target node && tsc --project tsconfig.build.json",
