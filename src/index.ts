@@ -15,14 +15,25 @@ const searchOptions = {
 	includeScore: true,
 	threshold: 0.4,
 	keys: [
+		// Group name fields
+		"groupInfo.names.stage",
+		"groupInfo.names.korean",
+		"groupInfo.names.japanese",
+		"groupInfo.names.chinese",
+		"groupInfo.fandomName",
+		// Company info
+		"company.current",
+		"company.history",
+		// Member names
+		"memberHistory.currentMembers.name",
+		"memberHistory.formerMembers.name",
+		// Idol name fields
 		"names.stage",
 		"names.korean",
 		"names.japanese",
 		"names.chinese",
 		"names.full",
 		"names.native",
-		"company.current",
-		"company.history.name",
 	],
 };
 
