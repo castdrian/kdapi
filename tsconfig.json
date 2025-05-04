@@ -22,12 +22,13 @@
 			]
 		},
 		"outDir": "dist",
-		"rootDir": "src",
+		"rootDir": ".",
 		"declaration": true,
 		"emitDeclarationOnly": true
 	},
 	"include": [
-		"src/**/*"
+		"src/**/*",
+		"test/**/*"
 	],
 	"exclude": [
 		"node_modules",

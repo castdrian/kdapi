@@ -38,12 +38,11 @@ idolSearcher.indexEntities(
 			entity.names.japanese,
 			entity.names.chinese,
 			// Add group names to search terms
-			...(entity.groups
-				?.flatMap((g) => [
-					g.name, // Group name by itself
-					`${entity.names.stage} ${g.name}`, // "Name Group"
-					`${g.name} ${entity.names.stage}`, // "Group Name"
-				]) || []),
+			...(entity.groups?.flatMap((g) => [
+				g.name, // Group name by itself
+				`${entity.names.stage} ${g.name}`, // "Name Group"
+				`${g.name} ${entity.names.stage}`, // "Group Name"
+			]) || []),
 		].filter((name): name is string => name !== null),
 );
 
@@ -52,15 +51,15 @@ groupSearcher.indexEntities(
 	(entity) => entity.id,
 	(entity) =>
 		[
-			entity.groupInfo.names.stage,
-			entity.groupInfo.names.korean,
-			entity.groupInfo.names.japanese,
-			entity.groupInfo.names.chinese,
-			entity.groupInfo.fandomName,
+			entity.groupInfo?.names?.stage,
+			entity.groupInfo?.names?.korean,
+			entity.groupInfo?.names?.japanese,
+			entity.groupInfo?.names?.chinese,
+			entity.groupInfo?.fandomName,
 			entity.company?.current,
-			...(entity.company?.history.map((h) => h.name) || []),
-			...entity.memberHistory.currentMembers.map((m) => m.name),
-			...(entity.memberHistory.formerMembers?.map((m) => m.name) || []),
+			...(entity.company?.history ?? []).map((h) => h.name),
+			...(entity.memberHistory?.currentMembers ?? []).map((m) => m.name),
+			...(entity.memberHistory?.formerMembers ?? []).map((m) => m.name),
 		].filter((name): name is string => name !== null),
 );
 
