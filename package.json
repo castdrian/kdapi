@@ -1,6 +1,6 @@
 {
   "name": "@castdrian/kdapi",
-  "version": "0.4.0",
+  "version": "0.3.4",
   "type": "module",
   "description": "kpop idol and group profiles dataset generator",
   "main": "dist/index.js",
