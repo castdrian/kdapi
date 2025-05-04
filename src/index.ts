@@ -22,7 +22,7 @@ const groupSearchOptions: IFuseOptions<Group> = {
 		{ name: "memberHistory.currentMembers.name", weight: 0.2 },
 	],
 	includeScore: true,
-	threshold: 0.3,
+	threshold: 0.4,
 	ignoreLocation: true,
 	minMatchCharLength: 2,
 	shouldSort: true,
@@ -192,6 +192,16 @@ export function search(
 	);
 
 	return uniqueResults.slice(0, limit);
+}
+
+export function getItemById(id: string): Idol | Group | undefined {
+	return [
+		...dataset.girlGroups,
+		...dataset.boyGroups,
+		...dataset.coedGroups,
+		...dataset.femaleIdols,
+		...dataset.maleIdols,
+	].find((item) => item.id === id);
 }
 
 export type { Idol, Group, DataSet, GroupsData, IdolsData };

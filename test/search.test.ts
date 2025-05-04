@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type Idol, type Group, search } from "@src/index";
+import { type Idol, type Group, search, getItemById } from "@src/index";
 
 describe("Fuzzy Search", () => {
 	test("should handle null company data", () => {
@@ -20,7 +20,7 @@ describe("Fuzzy Search", () => {
 			results.some(
 				(r) =>
 					r.type === "idol" &&
-					(r.item as Idol).groups?.some((g: { name: string; }) =>
+					(r.item as Idol).groups?.some((g: { name: string }) =>
 						g.name.toLowerCase().includes("stayc"),
 					),
 			),
@@ -42,12 +42,12 @@ describe("Fuzzy Search", () => {
 	});
 
 	test("should prioritize exact group name matches", () => {
-		const results = search("le sserafim");
+		const results = search("stayc");
 		expect(results.length).toBeGreaterThan(0);
 		expect(results[0]?.type).toBe("group");
 		expect(
 			(results[0]?.item as Group).groupInfo?.names?.stage?.toLowerCase(),
-		).toContain("le sserafim");
+		).toContain("stayc");
 	});
 
 	test("should handle Korean characters", () => {
@@ -80,5 +80,36 @@ describe("Fuzzy Search", () => {
 
 		const groupResults = search("stayc", { type: "group" });
 		expect(groupResults.every((r) => r.type === "group")).toBe(true);
+	});
+});
+
+describe("Get Item by ID", () => {
+	test("should return group when given valid group ID", () => {
+		const result = search("stayc", { type: "group", limit: 1 });
+		const group = result[0]?.item;
+		expect(group).toBeDefined();
+
+		if (group) {
+			const foundItem = getItemById(group.id);
+			expect(foundItem).toBeDefined();
+			expect(foundItem?.id).toBe(group.id);
+		}
+	});
+
+	test("should return idol when given valid idol ID", () => {
+		const result = search("sumin", { type: "idol", limit: 1 });
+		const idol = result[0]?.item;
+		expect(idol).toBeDefined();
+
+		if (idol) {
+			const foundItem = getItemById(idol.id);
+			expect(foundItem).toBeDefined();
+			expect(foundItem?.id).toBe(idol.id);
+		}
+	});
+
+	test("should return undefined for invalid ID", () => {
+		const foundItem = getItemById("non-existent-id");
+		expect(foundItem).toBeUndefined();
 	});
 });
