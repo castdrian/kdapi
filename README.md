@@ -41,7 +41,7 @@ kdapi scrape --batch-size 10 --delay 3000
 import { fuzzySearch, getItemById } from '@castdrian/kdapi';
 
 // Search across idols and groups
-const results = fuzzySearch('jennie', {
+const results = fuzzySearch('stayc', {
   type: 'all',      // 'idol' | 'group' | 'all'
   limit: 10,        // Max results
   threshold: 0.4    // Fuzzy match threshold

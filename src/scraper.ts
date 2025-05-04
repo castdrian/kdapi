@@ -470,12 +470,16 @@ function extractDateFromText(text: string): string | null {
 	return null;
 }
 
-function extractCompanyInfo(
-	$: cheerio.CheerioAPI,
-): { current: string | null; history: Array<{ name: string; period: { start: string; end?: string } }> } {
+function extractCompanyInfo($: cheerio.CheerioAPI): {
+	current: string | null;
+	history: Array<{ name: string; period: { start: string; end?: string } }>;
+} {
 	const company = {
 		current: null as string | null,
-		history: [] as Array<{ name: string; period: { start: string; end?: string } }>,
+		history: [] as Array<{
+			name: string;
+			period: { start: string; end?: string };
+		}>,
 	};
 
 	// Get current company from data grid - clean up colons
@@ -507,7 +511,7 @@ function extractCompanyInfo(
 		if (name && parsedPeriod) {
 			company.history.push({
 				name,
-				period: parsedPeriod
+				period: parsedPeriod,
 			});
 		}
 
@@ -705,7 +709,7 @@ async function extractGroupData(
 				stage: null,
 				korean: null,
 				japanese: null,
-				chinese: null
+				chinese: null,
 			},
 			fandomName: extractFandomName($) || null,
 		},
@@ -787,17 +791,18 @@ async function extractGroupData(
 		const debutText = debutCell.next().text().trim();
 		const debutDate = normalizeDate(debutText);
 		if (debutDate) {
-			if (!group.groupInfo) group.groupInfo = {
-				debutDate: null,
-				disbandmentDate: null,
-				names: {
-					stage: null,
-					korean: null,
-					japanese: null,
-					chinese: null
-				},
-				fandomName: null
-			};
+			if (!group.groupInfo)
+				group.groupInfo = {
+					debutDate: null,
+					disbandmentDate: null,
+					names: {
+						stage: null,
+						korean: null,
+						japanese: null,
+						chinese: null,
+					},
+					fandomName: null,
+				};
 			group.groupInfo.debutDate = debutDate;
 		}
 	}
@@ -819,17 +824,18 @@ async function extractGroupData(
 		if (disbandmentText) {
 			const disbandmentDate = normalizeDate(disbandmentText);
 			if (disbandmentDate) {
-				if (!group.groupInfo) group.groupInfo = {
-					debutDate: null,
-					disbandmentDate: null,
-					names: {
-						stage: null,
-						korean: null,
-						japanese: null,
-						chinese: null
-					},
-					fandomName: null
-				};
+				if (!group.groupInfo)
+					group.groupInfo = {
+						debutDate: null,
+						disbandmentDate: null,
+						names: {
+							stage: null,
+							korean: null,
+							japanese: null,
+							chinese: null,
+						},
+						fandomName: null,
+					};
 				group.groupInfo.disbandmentDate = disbandmentDate;
 			}
 		}
@@ -895,13 +901,48 @@ async function extractGroupData(
 }
 
 function extractFandomName($: cheerio.CheerioAPI): string | null {
-	const fandomCell = $(".data-grid .cell").filter((_, el) =>
+	const fandomCell = $(".data-grid .cell, .data-grid .equal").filter((_, el) =>
 		$(el).text().toLowerCase().includes("fandom"),
 	);
 
 	if (fandomCell.length) {
-		const fandomValue = fandomCell.find(".value").text();
-		return fandomValue ? cleanupText(fandomValue) : null;
+		// Get the actual text content, stripping any HTML and styling
+		const fandomValue = fandomCell
+			.find(".value")
+			.contents()
+			.filter((_, el) => el.type === "text")
+			.text()
+			.trim();
+
+		if (!fandomValue || fandomValue === "-") return null;
+
+		// Clean up any remaining artifacts and normalize whitespace
+		return fandomValue
+			.replace(/^\s*[:：]\s*/, "") // Remove leading colons
+			.replace(/\s+/g, " ") // Normalize whitespace
+			.trim();
+	}
+
+	// Try alternate selectors if the first one fails
+	const altFandomCell = $(".data-grid .equal").filter((_, el) => {
+		const label = $(el).find("strong").text().trim();
+		return label.toLowerCase() === "fandom:";
+	});
+
+	if (altFandomCell.length) {
+		const fandomValue = altFandomCell
+			.next(".equal")
+			.contents()
+			.filter((_, el) => el.type === "text")
+			.text()
+			.trim();
+
+		if (!fandomValue || fandomValue === "-") return null;
+
+		return fandomValue
+			.replace(/^\s*[:：]\s*/, "")
+			.replace(/\s+/g, " ")
+			.trim();
 	}
 
 	return null;
