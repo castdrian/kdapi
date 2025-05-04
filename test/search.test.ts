@@ -9,7 +9,6 @@ describe("Fuzzy Search", () => {
 
 	test("should search by idol name", () => {
 		const results = search("sumin");
-		console.log("Results for 'sumin':", JSON.stringify(results, null, 2));
 		expect(results.length).toBeGreaterThan(0);
 		expect(results.some((r) => r.type === "idol")).toBe(true);
 	});

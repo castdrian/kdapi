@@ -1342,28 +1342,174 @@ function getEndpointForType(
 function parsePeriod(text: string): { start: string; end?: string } | null {
 	if (!text) return null;
 
-	const periodMatch = text.match(
-		/(\d{4}(?:[-.／]\d{1,2}(?:[-.／]\d{1,2})?)?)\s*(?:-|~|to|until)\s*(\d{4}(?:[-.／]\d{1,2}(?:[-.／]\d{1,2})?)?|present)/i,
-	);
+	// First try to extract date ranges with various formats
+	const periodPatterns = [
+		// Full date range (YYYY-MM-DD to YYYY-MM-DD)
+		/(\d{4})[-.／](\d{1,2})[-.／](\d{1,2})\s*(?:-|~|to|until)\s*(\d{4})[-.／](\d{1,2})[-.／](\d{1,2})/i,
+		// Year-month range (YYYY-MM to YYYY-MM)
+		/(\d{4})[-.／](\d{1,2})\s*(?:-|~|to|until)\s*(\d{4})[-.／](\d{1,2})/i,
+		// Year range (YYYY to YYYY)
+		/(\d{4})\s*(?:-|~|to|until)\s*(\d{4})/i,
+		// Single full date (YYYY-MM-DD)
+		/(\d{4})[-.／](\d{1,2})[-.／](\d{1,2})/,
+		// Single year-month (YYYY-MM)
+		/(\d{4})[-.／](\d{1,2})/,
+		// Single year (YYYY)
+		/(\d{4})/,
+	];
 
-	if (periodMatch) {
-		const [, start, end] = periodMatch;
-		return {
-			start: normalizeDate(start ?? "") ?? start ?? "",
-			...(end &&
-				end.toLowerCase() !== "present" && { end: normalizeDate(end) || end }),
+	const monthToNum = (month: string): string => {
+		const months: Record<string, string> = {
+			january: "01",
+			february: "02",
+			march: "03",
+			april: "04",
+			may: "05",
+			june: "06",
+			july: "07",
+			august: "08",
+			september: "09",
+			october: "10",
+			november: "11",
+			december: "12",
 		};
+		return months[month.toLowerCase()] || "01";
+	};
+
+	for (const pattern of periodPatterns) {
+		const match = text.match(pattern);
+		if (match) {
+			// Remove the full match from the array
+			const groups = match.slice(1).filter(Boolean); // Remove undefined values
+
+			if (groups.length === 6) {
+				// Full date range
+				const [startYear, startMonth, startDay, endYear, endMonth, endDay] =
+					groups;
+				if (
+					startYear &&
+					startMonth &&
+					startDay &&
+					endYear &&
+					endMonth &&
+					endDay
+				) {
+					return {
+						start: `${startYear}-${startMonth.padStart(2, "0")}-${startDay.padStart(2, "0")}`,
+						end: `${endYear}-${endMonth.padStart(2, "0")}-${endDay.padStart(2, "0")}`,
+					};
+				}
+			} else if (groups.length === 4) {
+				// Year-month range
+				const [startYear, startMonth, endYear, endMonth] = groups;
+				if (startYear && startMonth && endYear && endMonth) {
+					return {
+						start: `${startYear}-${startMonth.padStart(2, "0")}-01`,
+						end: `${endYear}-${endMonth.padStart(2, "0")}-${getLastDayOfMonth(
+							Number(endYear),
+							Number(endMonth),
+						)}`,
+					};
+				}
+			} else if (groups.length === 3) {
+				// Single full date
+				const [year, month, day] = groups;
+				if (year && month && day) {
+					return {
+						start: `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`,
+					};
+				}
+			} else if (groups.length === 2 && !text.includes("present")) {
+				// Year range (but not "year to present")
+				const [startYear, endYear] = groups;
+				if (startYear && endYear) {
+					return {
+						start: `${startYear}-01-01`,
+						end: `${endYear}-12-31`,
+					};
+				}
+			} else if (groups.length === 1) {
+				// Single year
+				const [year] = groups;
+				if (year) {
+					// For a single year, set the date range to cover the whole year
+					return {
+						start: `${year}-01-01`,
+						end: `${year}-12-31`, // Changed to include the full year
+					};
+				}
+			}
+		}
 	}
 
-	// Try single date format
-	const singleMatch = text.match(/(\d{4}(?:[-.／]\d{1,2}(?:[-.／]\d{1,2})?)?)/);
-	if (singleMatch) {
-		return {
-			start: normalizeDate(singleMatch[1] ?? "") || (singleMatch[1] ?? ""),
-		};
+	// Handle text date ranges (e.g., "January 2020 to March 2021")
+	const monthNames =
+		"January|February|March|April|May|June|July|August|September|October|November|December";
+	const textDatePattern = new RegExp(
+		`(${monthNames})\\s+(\\d{1,2})?(?:st|nd|rd|th)?,?\\s*(\\d{4})\\s*(?:to|until|-)\\s*(${monthNames})?\\s*(\\d{1,2})?(?:st|nd|rd|th)?,?\\s*(\\d{4})?`,
+		"i",
+	);
+
+	const textMatch = text.match(textDatePattern);
+	if (textMatch) {
+		const [_, startMonth, startDay, startYear, endMonth, endDay, endYear] =
+			textMatch;
+
+		if (startMonth && startYear) {
+			const startMonthNum = monthToNum(startMonth);
+			const normalizedStartDay = startDay || "1";
+			const start = `${startYear}-${startMonthNum}-${normalizedStartDay.padStart(
+				2,
+				"0",
+			)}`;
+
+			let end: string | undefined;
+			if (endYear && endMonth) {
+				const endMonthNum = monthToNum(endMonth);
+				const normalizedEndDay =
+					endDay || getLastDayOfMonth(Number(endYear), Number(endMonthNum));
+				end = `${endYear}-${endMonthNum}-${normalizedEndDay
+					.toString()
+					.padStart(2, "0")}`;
+			}
+
+			return { start, ...(end && { end }) };
+		}
+	}
+
+	// Handle "present" cases
+	if (text.toLowerCase().includes("present")) {
+		const presentPattern = new RegExp(
+			`(${monthNames})\\s+(\\d{1,2})?(?:st|nd|rd|th)?,?\\s*(\\d{4})\\s*(?:to|until|-)\\s*present`,
+			"i",
+		);
+
+		const presentMatch = text.match(presentPattern);
+		if (presentMatch) {
+			const [_, monthStr, dayStr, yearStr] = presentMatch;
+			if (monthStr && yearStr) {
+				const month = monthToNum(monthStr);
+				const day = dayStr || "1";
+				return {
+					start: `${yearStr}-${month}-${day.padStart(2, "0")}`,
+				};
+			}
+		}
+
+		// Try simpler year-to-present pattern
+		const yearPresentMatch = text.match(/(\d{4})\s*(?:to|until|-)?\s*present/i);
+		if (yearPresentMatch?.[1]) {
+			return {
+				start: `${yearPresentMatch[1]}-01-01`,
+			};
+		}
 	}
 
 	return null;
+}
+
+function getLastDayOfMonth(year: number, month: number): string {
+	return new Date(year, month, 0).getDate().toString().padStart(2, "0");
 }
 
 function normalizeDate(date: string): string | null {
