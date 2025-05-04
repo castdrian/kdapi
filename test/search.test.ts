@@ -20,7 +20,7 @@ describe("Fuzzy Search", () => {
 			results.some(
 				(r) =>
 					r.type === "idol" &&
-					(r.item as Idol).groups?.some((g) =>
+					(r.item as Idol).groups?.some((g: { name: string; }) =>
 						g.name.toLowerCase().includes("stayc"),
 					),
 			),
@@ -31,6 +31,23 @@ describe("Fuzzy Search", () => {
 		const results = search("stayc");
 		expect(results.length).toBeGreaterThan(0);
 		expect(results.some((r) => r.type === "group")).toBe(true);
+	});
+
+	test("should return both group and members when searching for group name", () => {
+		const results = search("stayc");
+		const hasGroup = results.some((r) => r.type === "group");
+		const hasMembers = results.some((r) => r.type === "idol");
+		expect(hasGroup).toBe(true);
+		expect(hasMembers).toBe(true);
+	});
+
+	test("should prioritize exact group name matches", () => {
+		const results = search("le sserafim");
+		expect(results.length).toBeGreaterThan(0);
+		expect(results[0]?.type).toBe("group");
+		expect(
+			(results[0]?.item as Group).groupInfo?.names?.stage?.toLowerCase(),
+		).toContain("le sserafim");
 	});
 
 	test("should handle Korean characters", () => {
