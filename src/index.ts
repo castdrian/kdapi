@@ -13,13 +13,12 @@ const dataset: DataSet = {
 
 const groupSearchOptions: IFuseOptions<Group> = {
 	keys: [
-		{ name: "groupInfo.names.stage", weight: 10 },
-		{ name: "groupInfo.names.korean", weight: 3 },
-		{ name: "groupInfo.names.japanese", weight: 2 },
-		{ name: "groupInfo.names.chinese", weight: 2 },
-		{ name: "groupInfo.fandomName", weight: 0.5 },
-		{ name: "company.current", weight: 0.3 },
-		{ name: "memberHistory.currentMembers.name", weight: 0.2 },
+		{ name: "groupInfo.names.stage", weight: 8 },
+		{ name: "groupInfo.names.korean", weight: 6 },
+		{ name: "groupInfo.names.japanese", weight: 3 },
+		{ name: "groupInfo.names.chinese", weight: 3 },
+		{ name: "groupInfo.fandomName", weight: 1 },
+		{ name: "company.current", weight: 0.5 },
 	],
 	includeScore: true,
 	threshold: 0.4,
@@ -32,14 +31,14 @@ const idolSearchOptions: IFuseOptions<Idol> = {
 	keys: [
 		{ name: "names.stage", weight: 2 },
 		{ name: "names.full", weight: 2 },
-		{ name: "names.native", weight: 2 },
-		{ name: "names.korean", weight: 2 },
-		{ name: "names.japanese", weight: 1.5 },
-		{ name: "names.chinese", weight: 1.5 },
-		{ name: "groups.name", weight: 1 },
+		{ name: "names.native", weight: 1.5 },
+		{ name: "names.korean", weight: 1.5 },
+		{ name: "names.japanese", weight: 1 },
+		{ name: "names.chinese", weight: 1 },
+		{ name: "groups.name", weight: 0.5 },
 	],
 	includeScore: true,
-	threshold: 0.3,
+	threshold: 0.4,
 	ignoreLocation: true,
 	minMatchCharLength: 2,
 };
@@ -70,8 +69,8 @@ export function search(
 		score?: number;
 	}[] = [];
 
-	// Split query into words for better matching
-	const words = query.toLowerCase().trim().split(/\s+/);
+	const normalizedQuery = query.toLowerCase().trim();
+	const words = normalizedQuery.split(/\s+/);
 	const hasMultipleWords = words.length > 1;
 
 	// If threshold is provided, create new searchers with updated options
@@ -101,12 +100,13 @@ export function search(
 		// Search for the first word
 		const firstWordResults = firstWord ? search(firstWord, { limit: 50 }) : [];
 
-		// Filter results that match all words
+		// Filter results that contain all words
 		results = firstWordResults.filter((result) => {
-			const textToSearch =
+			const searchStrings =
 				result.type === "group"
 					? [
 							(result.item as Group).groupInfo.names.stage,
+							(result.item as Group).groupInfo.names.korean,
 							...((result.item as Group).memberHistory?.currentMembers?.map(
 								(m) => m.name,
 							) || []),
@@ -118,35 +118,42 @@ export function search(
 						];
 
 			return restWords.every((word) =>
-				textToSearch.some((text) => text?.toLowerCase().includes(word)),
+				searchStrings.some((text) => text?.toLowerCase().includes(word)),
 			);
 		});
 	} else {
-		const normalizedQuery = query.toLowerCase().trim();
-
 		// First check for exact group matches if we're not specifically searching for idols
 		if (type !== "idol") {
-			const exactGroupMatches = [
+			const allGroups = [
 				...dataset.girlGroups,
 				...dataset.boyGroups,
 				...dataset.coedGroups,
-			]
-				.filter(
-					(group) =>
-						group.groupInfo.names.stage?.toLowerCase() === normalizedQuery,
-				)
-				.map((group) => ({
-					item: group,
-					type: "group" as const,
-					score: 0, // Give exact matches the highest priority
-				}));
+			];
 
-			if (exactGroupMatches.length > 0) {
-				results.push(...exactGroupMatches);
+			// Check for exact matches and close matches
+			const normalizedQueryWithoutSpaces = normalizedQuery.replace(/\s+/g, "");
+			const exactMatches = allGroups.filter((group) => {
+				const stageNameNoSpaces =
+					group.groupInfo.names.stage?.toLowerCase().replace(/\s+/g, "") || "";
+				const koreanNameNoSpaces =
+					group.groupInfo.names.korean?.toLowerCase().replace(/\s+/g, "") || "";
+				return (
+					stageNameNoSpaces === normalizedQueryWithoutSpaces ||
+					koreanNameNoSpaces === normalizedQueryWithoutSpaces
+				);
+			});
 
-				// If we only want groups, return here
+			if (exactMatches.length > 0) {
+				results.push(
+					...exactMatches.map((group) => ({
+						item: group,
+						type: "group" as const,
+						score: -1, // Give exact matches highest priority with negative score
+					})),
+				);
+
 				if (type === "group") {
-					return exactGroupMatches.slice(0, limit);
+					return results.slice(0, limit);
 				}
 			}
 		}
@@ -156,12 +163,21 @@ export function search(
 			const groupResults = groupSearcherInstance.search(query);
 			results.push(
 				...groupResults
-					.filter(
-						(result) =>
-							// Exclude exact matches we already added
-							result.item.groupInfo.names.stage?.toLowerCase() !==
-							normalizedQuery,
-					)
+					.filter((result) => {
+						const stageNameNoSpaces =
+							result.item.groupInfo.names.stage
+								?.toLowerCase()
+								.replace(/\s+/g, "") || "";
+						const koreanNameNoSpaces =
+							result.item.groupInfo.names.korean
+								?.toLowerCase()
+								.replace(/\s+/g, "") || "";
+						const queryNoSpaces = normalizedQuery.replace(/\s+/g, "");
+						return (
+							stageNameNoSpaces !== queryNoSpaces &&
+							koreanNameNoSpaces !== queryNoSpaces
+						);
+					})
 					.map((result) => ({
 						item: result.item,
 						type: "group" as const,
@@ -176,14 +192,14 @@ export function search(
 				...idolResults.map((result) => ({
 					item: result.item,
 					type: "idol" as const,
-					score: result.score || 1,
+					score: (result.score || 1) * 2, // Reduce idol priority by doubling their scores
 				})),
 			);
 		}
-
-		// Sort results by score (lower is better)
-		results = results.sort((a, b) => (a.score || 1) - (b.score || 1));
 	}
+
+	// Sort results by score (lower is better)
+	results = results.sort((a, b) => (a.score || 1) - (b.score || 1));
 
 	// Remove duplicates
 	const uniqueResults = results.filter(
