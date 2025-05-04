@@ -74,7 +74,7 @@ jobs:
 
       - name: Bump version and commit
         if: |
-          steps.scrape.outputs.has_changes == 'true' ||
+          (steps.scrape.outputs.has_changes == 'true' && github.event_name != 'push') ||
           (github.event_name == 'workflow_dispatch' && 
            inputs.force_release == 'true')
         run: |
