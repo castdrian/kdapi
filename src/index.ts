@@ -13,16 +13,16 @@ const dataset: DataSet = {
 
 const groupSearchOptions: IFuseOptions<Group> = {
 	keys: [
-		{ name: "groupInfo.names.stage", weight: 2 },
+		{ name: "groupInfo.names.stage", weight: 2.5 },
 		{ name: "groupInfo.names.korean", weight: 2 },
 		{ name: "groupInfo.names.japanese", weight: 1.5 },
 		{ name: "groupInfo.names.chinese", weight: 1.5 },
-		{ name: "groupInfo.fandomName", weight: 0.7 },
+		{ name: "groupInfo.fandomName", weight: 0.5 },
 		{ name: "company.current", weight: 0.3 },
-		{ name: "memberHistory.currentMembers.name", weight: 1 },
+		{ name: "memberHistory.currentMembers.name", weight: 0.3 },
 	],
 	includeScore: true,
-	threshold: 0.3,
+	threshold: 0.4,
 	ignoreLocation: true,
 	minMatchCharLength: 2,
 };

@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: '0 0 1 * *'  # Run monthly
   workflow_dispatch:
@@ -52,9 +55,9 @@ jobs:
 
       - name: Scrape for updates
         if: |
-          inputs.skip_scrape != true && 
-          (steps.check_release.outputs.version_exists == 'true' || 
-           github.event_name == 'workflow_dispatch')
+          (inputs.skip_scrape != true && github.event_name == 'workflow_dispatch') ||
+          (github.event_name == 'schedule') ||
+          (github.event_name == 'push' && inputs.skip_scrape != true) 
         id: scrape
         run: |
           if [ "${{ inputs.force_scrape }}" = "true" ]; then
