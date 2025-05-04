@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 import { Command } from "commander";
-import { runDebugMode, runProductionMode } from "./scraper";
+import { runDebugMode, runProductionMode } from "@src/scraper";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import pkg from "../package.json";
+import pkg from "@root/package.json";
 
 const program = new Command();
 
