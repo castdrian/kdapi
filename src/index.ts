@@ -1,7 +1,7 @@
 import type { Idol, Group, DataSet, GroupsData, IdolsData } from "@src/types";
 import groups from "@root/data/groups.json" assert { type: "json" };
 import idols from "@root/data/idols.json" assert { type: "json" };
-import * as fuzzySearchLib from "@m31coding/fuzzy-search";
+import Fuse, { type IFuseOptions } from "fuse.js";
 
 const dataset: DataSet = {
 	femaleIdols: (idols as IdolsData).femaleIdols,
@@ -11,61 +11,52 @@ const dataset: DataSet = {
 	coedGroups: (groups as GroupsData).coedGroups,
 };
 
-// Configure searcher to handle all character types (for Korean, Japanese, Chinese characters)
-const config = fuzzySearchLib.Config.createDefaultConfig();
-config.normalizerConfig.allowCharacter = (_c: string) => true;
+const groupSearchOptions: IFuseOptions<Group> = {
+	keys: [
+		{ name: "groupInfo.names.stage", weight: 2 },
+		{ name: "groupInfo.names.korean", weight: 2 },
+		{ name: "groupInfo.names.japanese", weight: 1.5 },
+		{ name: "groupInfo.names.chinese", weight: 1.5 },
+		{ name: "groupInfo.fandomName", weight: 0.7 },
+		{ name: "company.current", weight: 0.3 },
+		{ name: "memberHistory.currentMembers.name", weight: 1 },
+	],
+	includeScore: true,
+	threshold: 0.3,
+	ignoreLocation: true,
+	minMatchCharLength: 2,
+};
 
-// Create separate searchers for idols and groups for better performance
-const idolSearcher = fuzzySearchLib.SearcherFactory.createSearcher<
-	Idol,
-	string
->(config);
-const groupSearcher = fuzzySearchLib.SearcherFactory.createSearcher<
-	Group,
-	string
->(config);
+const idolSearchOptions: IFuseOptions<Idol> = {
+	keys: [
+		{ name: "names.stage", weight: 2 },
+		{ name: "names.full", weight: 2 },
+		{ name: "names.native", weight: 2 },
+		{ name: "names.korean", weight: 2 },
+		{ name: "names.japanese", weight: 1.5 },
+		{ name: "names.chinese", weight: 1.5 },
+		{
+			name: "groups.name",
+			weight: 1,
+		},
+	],
+	includeScore: true,
+	threshold: 0.3,
+	ignoreLocation: true,
+	minMatchCharLength: 2,
+};
 
-// Index the idols and groups
-idolSearcher.indexEntities(
-	[...dataset.femaleIdols, ...dataset.maleIdols],
-	(entity) => entity.id,
-	(entity) =>
-		[
-			entity.names.stage,
-			entity.names.full,
-			entity.names.native,
-			entity.names.korean,
-			entity.names.japanese,
-			entity.names.chinese,
-			// Add group names to search terms
-			...(entity.groups?.flatMap((g) => [
-				g.name, // Group name by itself
-				`${entity.names.stage} ${g.name}`, // "Name Group"
-				`${g.name} ${entity.names.stage}`, // "Group Name"
-			]) || []),
-		].filter((name): name is string => name !== null),
-);
-
-groupSearcher.indexEntities(
+// Initialize searchers
+const groupSearcher = new Fuse(
 	[...dataset.girlGroups, ...dataset.boyGroups, ...dataset.coedGroups],
-	(entity) => entity.id,
-	(entity) =>
-		[
-			entity.groupInfo?.names?.stage,
-			entity.groupInfo?.names?.korean,
-			entity.groupInfo?.names?.japanese,
-			entity.groupInfo?.names?.chinese,
-			entity.groupInfo?.fandomName,
-			entity.company?.current,
-			...(entity.company?.history ?? []).map((h) => h.name),
-			...(entity.memberHistory?.currentMembers ?? []).map((m) => m.name),
-			...(entity.memberHistory?.formerMembers ?? []).map((m) => m.name),
-		].filter((name): name is string => name !== null),
+	groupSearchOptions,
 );
 
-/**
- * Search across both idols and groups with improved accuracy
- */
+const idolSearcher = new Fuse(
+	[...dataset.femaleIdols, ...dataset.maleIdols],
+	idolSearchOptions,
+);
+
 export function search(
 	query: string,
 	options: {
@@ -74,47 +65,118 @@ export function search(
 		threshold?: number;
 	} = {},
 ) {
-	const { type = "all", limit = 10, threshold = 0.4 } = options;
+	const { type = "all", limit = 10, threshold } = options;
 	const results: { item: Idol | Group; type: "idol" | "group" }[] = [];
 
-	const searchQuery = new fuzzySearchLib.Query(query, limit, threshold);
+	// Split query into words for better matching
+	const words = query.toLowerCase().trim().split(/\s+/);
+	const hasMultipleWords = words.length > 1;
 
-	if (type === "all" || type === "idol") {
-		const idolResults = idolSearcher.getMatches(searchQuery);
-		results.push(
-			...idolResults.matches.map((match) => ({
-				item: match.entity,
-				type: "idol" as const,
-			})),
-		);
+	// If threshold is provided, create new searchers with updated options
+	const groupSearcherInstance =
+		threshold !== undefined
+			? new Fuse(
+					[...dataset.girlGroups, ...dataset.boyGroups, ...dataset.coedGroups],
+					{
+						...groupSearchOptions,
+						threshold,
+					},
+				)
+			: groupSearcher;
+
+	const idolSearcherInstance =
+		threshold !== undefined
+			? new Fuse([...dataset.femaleIdols, ...dataset.maleIdols], {
+					...idolSearchOptions,
+					threshold,
+				})
+			: idolSearcher;
+
+	if (hasMultipleWords) {
+		const [firstWord, ...restWords] = words;
+		if (!firstWord) return [];
+		const restWordsStr = restWords.join(" ");
+
+		// Search for idols matching the first word
+		const potentialIdols = idolSearcherInstance.search(firstWord);
+
+		// Add matches where idol belongs to the specified group
+		for (const idolResult of potentialIdols) {
+			const idol = idolResult.item;
+			if (idol.groups?.some((g) => g.name.toLowerCase() === restWordsStr)) {
+				results.push({
+					item: idol,
+					type: "idol",
+				});
+			}
+		}
+
+		// Try reverse order (group first, then idol name)
+		const reversePotentialIdols = idolSearcherInstance.search(restWordsStr);
+		for (const idolResult of reversePotentialIdols) {
+			const idol = idolResult.item;
+			if (idol.groups?.some((g) => g.name.toLowerCase() === firstWord)) {
+				results.push({
+					item: idol,
+					type: "idol",
+				});
+			}
+		}
+
+		// If no exact matches found, fall back to fuzzy search
+		if (results.length === 0) {
+			for (const idolResult of potentialIdols) {
+				const idol = idolResult.item;
+				if (
+					idol.groups?.some((g) => g.name.toLowerCase().includes(restWordsStr))
+				) {
+					results.push({
+						item: idol,
+						type: "idol",
+					});
+				}
+			}
+		}
+	} else {
+		if (type === "all" || type === "idol") {
+			const idolResults = idolSearcherInstance.search(query);
+			results.push(
+				...idolResults.map((result) => ({
+					item: result.item,
+					type: "idol" as const,
+				})),
+			);
+		}
+
+		if (type === "all" || type === "group") {
+			const groupResults = groupSearcherInstance.search(query);
+			results.push(
+				...groupResults.map((result) => ({
+					item: result.item,
+					type: "group" as const,
+				})),
+			);
+		}
 	}
 
-	if (type === "all" || type === "group") {
-		const groupResults = groupSearcher.getMatches(searchQuery);
-		results.push(
-			...groupResults.matches.map((match) => ({
-				item: match.entity,
-				type: "group" as const,
-			})),
-		);
-	}
+	// Remove duplicates
+	const uniqueResults = results.filter(
+		(result, index, self) =>
+			index === self.findIndex((r) => r.item.id === result.item.id),
+	);
 
-	return results;
+	return uniqueResults.slice(0, limit);
 }
 
-/**
- * Get a specific idol or group by ID
- */
+export type { Idol, Group };
 export function getItemById(
 	id: string,
 ): { item: Idol | Group; type: "idol" | "group" } | null {
-	// Search idols
 	const idol = [...dataset.femaleIdols, ...dataset.maleIdols].find(
 		(i) => i.id === id,
 	);
 	if (idol) return { item: idol, type: "idol" };
 
-	// Search groups
 	const group = [
 		...dataset.girlGroups,
 		...dataset.boyGroups,
@@ -124,17 +186,3 @@ export function getItemById(
 
 	return null;
 }
-
-// Export types for external use
-export type {
-	Idol,
-	DataSet,
-	GroupType,
-	Company,
-	SocialMedia,
-	GroupNames,
-	GroupInfo,
-	MemberHistory,
-	Group,
-	GroupsData,
-} from "@src/types";

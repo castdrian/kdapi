@@ -1,6 +1,6 @@
 {
   "name": "@castdrian/kdapi",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "type": "module",
   "description": "kpop idol and group profiles dataset generator",
   "main": "dist/index.js",
@@ -32,10 +32,10 @@
   },
   "dependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@m31coding/fuzzy-search": "^1.0.2",
     "cheerio": "^1.0.0",
     "commander": "^13.1.0",
     "date-fns": "^4.1.0",
+    "fuse.js": "^7.1.0",
     "undici": "^7.8.0",
     "uuid": "^11.1.0",
     "zod": "^3.22.4"

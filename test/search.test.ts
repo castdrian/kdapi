@@ -2,16 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { type Idol, type Group, search } from "@src/index";
 
 describe("Fuzzy Search", () => {
-	const testJapaneseName = "ステイシー";
-
 	test("should handle null company data", () => {
 		const results = search("company");
 		expect(results).toBeDefined();
-		// Should not throw any errors
 	});
 
 	test("should search by idol name", () => {
 		const results = search("sumin");
+		console.log("Results for 'sumin':", JSON.stringify(results, null, 2));
 		expect(results.length).toBeGreaterThan(0);
 		expect(results.some((r) => r.type === "idol")).toBe(true);
 	});
@@ -23,7 +21,9 @@ describe("Fuzzy Search", () => {
 			results.some(
 				(r) =>
 					r.type === "idol" &&
-					(r.item as Idol).groups?.some((g) => g.name.toLowerCase().includes("fromis")),
+					(r.item as Idol).groups?.some((g) =>
+						g.name.toLowerCase().includes("stayc"),
+					),
 			),
 		).toBe(true);
 	});
@@ -40,7 +40,7 @@ describe("Fuzzy Search", () => {
 	});
 
 	test("should handle Japanese characters", () => {
-		const results = search(testJapaneseName);
+		const results = search("ステイシー");
 		expect(results.length).toBeGreaterThan(0);
 		expect(
 			results.some(
@@ -48,7 +48,7 @@ describe("Fuzzy Search", () => {
 					r.type === "group" &&
 					(r.item as Group).groupInfo?.names?.stage
 						?.toLowerCase()
-						.includes("twice"),
+						.includes("stayc"),
 			),
 		).toBe(true);
 	});
@@ -59,10 +59,10 @@ describe("Fuzzy Search", () => {
 	});
 
 	test("should filter by type", () => {
-		const idolResults = search("jin", { type: "idol" });
+		const idolResults = search("sumin", { type: "idol" });
 		expect(idolResults.every((r) => r.type === "idol")).toBe(true);
 
-		const groupResults = search("bts", { type: "group" });
+		const groupResults = search("stayc", { type: "group" });
 		expect(groupResults.every((r) => r.type === "group")).toBe(true);
 	});
 });

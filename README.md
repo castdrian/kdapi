@@ -44,7 +44,7 @@ import { search, getItemById } from '@castdrian/kdapi';
 const results = search('stayc', {  // Supports Korean, Japanese, Chinese characters
     type: 'all',      // 'idol' | 'group' | 'all'
     limit: 10,        // Max number of results
-    threshold: 0.4    // Match quality threshold (0-1)
+    threshold: 0.3    // Match quality threshold (0-1)
 });
 
 // The search is performed across multiple fields:
