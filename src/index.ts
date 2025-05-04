@@ -1,7 +1,7 @@
 import type { Idol, Group, DataSet, GroupsData, IdolsData } from "@src/types";
 import groups from "@root/data/groups.json" assert { type: "json" };
 import idols from "@root/data/idols.json" assert { type: "json" };
-import Fuse from "fuse.js";
+import * as fuzzySearchLib from "@m31coding/fuzzy-search";
 
 const dataset: DataSet = {
 	femaleIdols: (idols as IdolsData).femaleIdols,
@@ -11,83 +11,89 @@ const dataset: DataSet = {
 	coedGroups: (groups as GroupsData).coedGroups,
 };
 
-const searchOptions = {
-	includeScore: true,
-	threshold: 0.4,
-	keys: [
-		// Group name fields
-		"groupInfo.names.stage",
-		"groupInfo.names.korean",
-		"groupInfo.names.japanese",
-		"groupInfo.names.chinese",
-		"groupInfo.fandomName",
-		// Company info
-		"company.current",
-		"company.history",
-		// Member names
-		"memberHistory.currentMembers.name",
-		"memberHistory.formerMembers.name",
-		// Idol name fields
-		"names.stage",
-		"names.korean",
-		"names.japanese",
-		"names.chinese",
-		"names.full",
-		"names.native",
-	],
-};
+// Configure searcher to handle all character types (for Korean, Japanese, Chinese characters)
+const config = fuzzySearchLib.Config.createDefaultConfig();
+config.normalizerConfig.allowCharacter = (_c: string) => true;
 
-// Create search indices
-const idolIndex = new Fuse(
+// Create separate searchers for idols and groups for better performance
+const idolSearcher = fuzzySearchLib.SearcherFactory.createSearcher<
+	Idol,
+	string
+>(config);
+const groupSearcher = fuzzySearchLib.SearcherFactory.createSearcher<
+	Group,
+	string
+>(config);
+
+// Index the idols and groups
+idolSearcher.indexEntities(
 	[...dataset.femaleIdols, ...dataset.maleIdols],
-	searchOptions,
+	(entity) => entity.id,
+	(entity) =>
+		[
+			entity.names.stage,
+			entity.names.full,
+			entity.names.native,
+			entity.names.korean,
+			entity.names.japanese,
+			entity.names.chinese,
+		].filter((name): name is string => name !== null),
 );
-const groupIndex = new Fuse(
+
+groupSearcher.indexEntities(
 	[...dataset.girlGroups, ...dataset.boyGroups, ...dataset.coedGroups],
-	searchOptions,
+	(entity) => entity.id,
+	(entity) =>
+		[
+			entity.groupInfo.names.stage,
+			entity.groupInfo.names.korean,
+			entity.groupInfo.names.japanese,
+			entity.groupInfo.names.chinese,
+			entity.groupInfo.fandomName,
+			entity.company?.current,
+			...(entity.company?.history.map((h) => h.name) || []),
+			...entity.memberHistory.currentMembers.map((m) => m.name),
+			...(entity.memberHistory.formerMembers?.map((m) => m.name) || []),
+		].filter((name): name is string => name !== null),
 );
 
 /**
- * Fuzzy search across both idols and groups
+ * Search across both idols and groups with improved accuracy
  */
-export function fuzzySearch(
+export function search(
 	query: string,
-	options?: {
+	options: {
 		type?: "idol" | "group" | "all";
 		limit?: number;
 		threshold?: number;
-	},
+	} = {},
 ) {
-	const { type = "all", limit = 10, threshold = 0.4 } = options ?? {};
-	const results: {
-		item: Idol | Group;
-		score: number;
-		type: "idol" | "group";
-	}[] = [];
+	const { type = "all", limit = 10, threshold = 0.4 } = options;
+	const results: { item: Idol | Group; type: "idol" | "group" }[] = [];
+
+	const searchQuery = new fuzzySearchLib.Query(query, limit, threshold);
 
 	if (type === "all" || type === "idol") {
-		const idolResults = idolIndex.search(query, { limit });
+		const idolResults = idolSearcher.getMatches(searchQuery);
 		results.push(
-			...idolResults
-				.filter((r): r is typeof r & { score: number } => r.score !== undefined)
-				.map((r) => ({ item: r.item, score: r.score, type: "idol" as const })),
+			...idolResults.matches.map((match) => ({
+				item: match.entity,
+				type: "idol" as const,
+			})),
 		);
 	}
 
 	if (type === "all" || type === "group") {
-		const groupResults = groupIndex.search(query, { limit });
+		const groupResults = groupSearcher.getMatches(searchQuery);
 		results.push(
-			...groupResults
-				.filter((r): r is typeof r & { score: number } => r.score !== undefined)
-				.map((r) => ({ item: r.item, score: r.score, type: "group" as const })),
+			...groupResults.matches.map((match) => ({
+				item: match.entity,
+				type: "group" as const,
+			})),
 		);
 	}
 
-	return results
-		.filter((r) => r.score && r.score < threshold)
-		.sort((a, b) => a.score - b.score)
-		.slice(0, limit)
-		.map(({ item, type }) => ({ item, type }));
+	return results;
 }
 
 /**

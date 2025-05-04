@@ -7,7 +7,7 @@ K-pop Data API and Dataset Generator
 A TypeScript library that scrapes K-pop idol and group information from online sources to create comprehensive JSON datasets. The package provides:
 
 - Data scraping with caching
-- Fuzzy search functionality
+- Advanced fuzzy search with multi-language support
 - TypeScript type definitions
 - Built-in dataset access
 
@@ -38,14 +38,23 @@ kdapi scrape --batch-size 10 --delay 3000
 ### Using the API
 
 ```typescript
-import { fuzzySearch, getItemById } from '@castdrian/kdapi';
+import { search, getItemById } from '@castdrian/kdapi';
 
-// Search across idols and groups
-const results = fuzzySearch('stayc', {
-  type: 'all',      // 'idol' | 'group' | 'all'
-  limit: 10,        // Max results
-  threshold: 0.4    // Fuzzy match threshold
+// Search across idols and groups with improved accuracy
+const results = search('stayc', {  // Supports Korean, Japanese, Chinese characters
+    type: 'all',      // 'idol' | 'group' | 'all'
+    limit: 10,        // Max number of results
+    threshold: 0.4    // Match quality threshold (0-1)
 });
+
+// The search is performed across multiple fields:
+// - For idols: stage name, full name, native name, Korean, Japanese, and Chinese names
+// - For groups: group names, fandom name, company names, and member names
+
+// Each result includes:
+// - item: The matched idol or group
+// - type: 'idol' or 'group'
+// - Additional metadata about match quality
 
 // Get specific idol/group by ID
 const item = getItemById('some-uuid');
