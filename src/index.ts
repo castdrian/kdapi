@@ -37,6 +37,13 @@ idolSearcher.indexEntities(
 			entity.names.korean,
 			entity.names.japanese,
 			entity.names.chinese,
+			// Add group names to search terms
+			...(entity.groups
+				?.flatMap((g) => [
+					g.name, // Group name by itself
+					`${entity.names.stage} ${g.name}`, // "Name Group"
+					`${g.name} ${entity.names.stage}`, // "Group Name"
+				]) || []),
 		].filter((name): name is string => name !== null),
 );
 
