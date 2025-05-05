@@ -102,8 +102,8 @@ async function shouldRetry(url: string): Promise<boolean> {
 	const now = Date.now();
 	const timeSinceLastAttempt = now - failed.lastAttempt;
 	const backoffTime = Math.min(
-		CONFIG.retryDelay * 1.5 ** failed.count, // Changed from 2 to 1.5
-		30000, // Max 30s delay instead of 60s
+		CONFIG.retryDelay * 1.5 ** failed.count,
+		30000,
 	);
 
 	return timeSinceLastAttempt >= backoffTime;
@@ -129,13 +129,6 @@ function cleanText(text: string): string {
 		.replace(/\u200B|\u200C|\u200D|\uFEFF/g, "")
 		.replace(/[""]/g, '"')
 		.replace(/['′]/g, "'");
-}
-
-// Add this helper function
-function cleanupText(text: string): string {
-	return text
-		.replace(/\s+/g, " ") // Replace multiple spaces/newlines with single space
-		.trim();
 }
 
 // Rate limiting token bucket
@@ -525,8 +518,20 @@ function extractCompanyInfo($: cheerio.CheerioAPI): {
 }
 
 function parseDescription($: cheerio.CheerioAPI): string | undefined {
-	const description = $('meta[name="description"]').attr("content");
-	return description ? cleanText(description) : undefined;
+	// Find the Introduction section
+	const introSection = $('h2:has(span:contains("Introduction"))').next("p");
+	if (introSection.length) {
+		// Extract and clean the full introduction text
+		return cleanText(introSection.text());
+	}
+
+	// Fallback to meta description if no introduction section found
+	const metaDescription = $('meta[name="description"]').attr("content");
+	if (metaDescription) {
+		return cleanText(metaDescription);
+	}
+
+	return undefined;
 }
 
 function parseLocation($: cheerio.CheerioAPI): {
