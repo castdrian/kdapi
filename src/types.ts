@@ -117,6 +117,7 @@ export interface CareerInfo {
 export interface GroupMember {
 	name: string;
 	profileUrl: string;
+	id?: string; // ID of the idol
 }
 
 //---------------------------
@@ -125,6 +126,7 @@ export interface GroupMember {
 
 export interface GroupActivity {
 	name: string;
+	id?: string; // ID of the group
 	status: "current" | "former";
 	period?: {
 		start: string;

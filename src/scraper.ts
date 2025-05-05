@@ -8,7 +8,6 @@ import {
 	BloodType,
 	type DataSet,
 	type SocialMedia,
-	type CoreProfile,
 	type Group,
 	type Idol,
 	Status,
@@ -16,6 +15,7 @@ import {
 	GroupType,
 	type IdolNames,
 	type GroupNames,
+	type GroupActivity,
 } from "@src/types";
 
 export { runDebugMode, runProductionMode, scrapeProfiles };
@@ -84,6 +84,32 @@ const logger = {
 	success: (msg: string) => console.log(`\x1b[32m[SUCCESS]\x1b[0m ${msg}`),
 };
 
+// Cache for profile URL to ID mappings
+const urlToIdCache = new Map<string, string>();
+
+function cacheProfileId(profileUrl: string, id: string) {
+	urlToIdCache.set(profileUrl, id);
+}
+
+function getIdFromProfileUrl(profileUrl: string): string | undefined {
+	return urlToIdCache.get(profileUrl);
+}
+
+// Initialize cache from existing dataset
+function initializeUrlToIdCache(dataset: DataSet) {
+	const allProfiles = [
+		...dataset.femaleIdols,
+		...dataset.maleIdols,
+		...dataset.girlGroups,
+		...dataset.boyGroups,
+		...dataset.coedGroups,
+	];
+
+	for (const profile of allProfiles) {
+		cacheProfileId(profile.profileUrl, profile.id);
+	}
+}
+
 // Track failed requests to implement backoff strategy
 const failedRequests = new Map<
 	string,
@@ -101,10 +127,7 @@ async function shouldRetry(url: string): Promise<boolean> {
 	// More lenient backoff
 	const now = Date.now();
 	const timeSinceLastAttempt = now - failed.lastAttempt;
-	const backoffTime = Math.min(
-		CONFIG.retryDelay * 1.5 ** failed.count,
-		30000,
-	);
+	const backoffTime = Math.min(CONFIG.retryDelay * 1.5 ** failed.count, 30000);
 
 	return timeSinceLastAttempt >= backoffTime;
 }
@@ -856,7 +879,7 @@ async function extractGroupData(
 			.text()
 			.trim() || undefined;
 
-	// Extract member history with positions
+	// Extract member history with IDs
 	const memberHistory = {
 		currentMembers: [] as GroupMember[],
 		formerMembers: [] as GroupMember[],
@@ -866,13 +889,20 @@ async function extractGroupData(
 	$(".members a").each((_, el) => {
 		const $member = $(el);
 		const name = $member.find("strong, p").first().text().trim();
-		if (name) {
-			memberHistory.currentMembers.push({
+		const profileUrl = ($member.attr("href") || "").startsWith("http")
+			? $member.attr("href") || ""
+			: `${BASE_URL}${$member.attr("href") || ""}`;
+
+		if (name && profileUrl) {
+			const memberId = getIdFromProfileUrl(profileUrl);
+			const member: GroupMember = {
 				name,
-				profileUrl: ($member.attr("href") || "").startsWith("http")
-					? $member.attr("href") || ""
-					: `${BASE_URL}${$member.attr("href") || ""}`,
-			});
+				profileUrl,
+			};
+			if (memberId) {
+				member.id = memberId;
+			}
+			memberHistory.currentMembers.push(member);
 		}
 	});
 
@@ -883,26 +913,32 @@ async function extractGroupData(
 		.each((_, el) => {
 			const $member = $(el);
 			const name = $member.find("strong, p").first().text().trim();
-			if (name) {
-				memberHistory.formerMembers.push({
+			const profileUrl = ($member.attr("href") || "").startsWith("http")
+				? $member.attr("href") || ""
+				: `${BASE_URL}${$member.attr("href") || ""}`;
+
+			if (name && profileUrl) {
+				const memberId = getIdFromProfileUrl(profileUrl);
+				const member: GroupMember = {
 					name,
-					profileUrl: ($member.attr("href") || "").startsWith("http")
-						? $member.attr("href") || ""
-						: `${BASE_URL}${$member.attr("href") || ""}`,
-				});
+					profileUrl,
+				};
+				if (memberId) {
+					member.id = memberId;
+				}
+				memberHistory.formerMembers.push(member);
 			}
 		});
 
 	group.memberHistory = {
-		currentMembers: memberHistory.currentMembers.filter(
-			(member) => member.profileUrl !== undefined,
-		) as { name: string; profileUrl: string }[],
-		formerMembers: memberHistory.formerMembers.filter(
-			(member) => member.profileUrl !== undefined,
-		) as { name: string; profileUrl: string }[],
+		currentMembers: memberHistory.currentMembers.filter((m) => m.profileUrl),
+		formerMembers: memberHistory.formerMembers.filter((m) => m.profileUrl),
 	};
 
-	return cleanupUndefined({ ...group, fandom });
+	// Cache the group's ID
+	cacheProfileId(url, group.id);
+
+	return cleanupUndefined({ ...group });
 }
 
 function extractFandomName($: cheerio.CheerioAPI): string | null {
@@ -1014,35 +1050,40 @@ async function parseIdolProfile(
 		idol.careerInfo = careerInfo;
 	}
 
-	// Extract group affiliations
-	const groups: {
-		name: string;
-		status: "current" | "former";
-		period?: { start: string; end?: string };
-	}[] = [];
+	// Extract group affiliations with IDs
+	const groups: GroupActivity[] = [];
 	$("#idol-associated-groups .group").each((_, el) => {
 		const $group = $(el);
 		const name = $group.find("h4 a").text().trim();
+		const groupUrl = ($group.find("h4 a").attr("href") || "").startsWith("http")
+			? $group.find("h4 a").attr("href")
+			: `${BASE_URL}${$group.find("h4 a").attr("href")}`;
 		const status: "current" | "former" = $group
 			.find("figcaption i")
 			.hasClass("fa-play-circle")
 			? "current"
 			: "former";
 
-		if (name) {
-			const group = {
+		if (name && groupUrl) {
+			const groupData: GroupActivity = {
 				name,
 				status,
 				period: parsePeriod($group.find("figcaption span").text()) || undefined,
 			};
-
-			groups.push(group);
+			const groupId = getIdFromProfileUrl(groupUrl);
+			if (groupId) {
+				groupData.id = groupId;
+			}
+			groups.push(groupData);
 		}
 	});
 
 	if (groups.length > 0) {
 		idol.groups = groups;
 	}
+
+	// Cache the idol's ID
+	cacheProfileId(url, idol.id);
 
 	return cleanupUndefined(idol);
 }
@@ -1172,6 +1213,10 @@ async function runProductionMode(options: {
 			...existingIdols,
 		};
 		logger.info("Loaded existing dataset");
+
+		// Initialize URL to ID cache from existing dataset
+		initializeUrlToIdCache(dataset);
+		logger.info("Initialized URL to ID cache");
 	} catch (e) {
 		logger.warn("No existing dataset found, starting fresh");
 	}
@@ -1251,6 +1296,7 @@ function mergeProfiles<T extends { id: string; profileUrl: string }>(
 		} else {
 			// Add new profile
 			merged.push(profile);
+			cacheProfileId(profile.profileUrl, profile.id); // Cache the new profile ID
 		}
 	}
 
