@@ -56,8 +56,7 @@ jobs:
       - name: Scrape for updates
         if: |
           (inputs.skip_scrape != true && github.event_name == 'workflow_dispatch') ||
-          (github.event_name == 'schedule') ||
-          (github.event_name == 'push' && inputs.skip_scrape != true) 
+          (github.event_name == 'schedule')
         id: scrape
         run: |
           if [ "${{ inputs.force_scrape }}" = "true" ]; then
@@ -74,19 +73,19 @@ jobs:
 
       - name: Bump version and commit
         if: |
-          (steps.scrape.outputs.has_changes == 'true' && github.event_name != 'push') ||
-          (github.event_name == 'workflow_dispatch' && 
-           inputs.force_release == 'true')
+          github.event_name == 'push' ||
+          steps.scrape.outputs.has_changes == 'true' ||
+          (github.event_name == 'workflow_dispatch' && inputs.force_release == 'true')
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
           
-          # Bump minor version
+          # Bump patch version
           VERSION=$(jq -r .version package.json)
           MAJOR=$(echo $VERSION | cut -d. -f1)
           MINOR=$(echo $VERSION | cut -d. -f2)
           PATCH=$(echo $VERSION | cut -d. -f3)
-          NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+          NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
           
           # Update version in package.json
           jq ".version = \"$NEW_VERSION\"" package.json > temp.json && mv temp.json package.json
@@ -100,8 +99,7 @@ jobs:
         if: |
           steps.scrape.outputs.has_changes == 'true' ||
           steps.check_release.outputs.version_exists == 'false' ||
-          (github.event_name == 'workflow_dispatch' && 
-           inputs.force_release == 'true')
+          (github.event_name == 'workflow_dispatch' && inputs.force_release == 'true')
         run: |
           bun publish
         env:
