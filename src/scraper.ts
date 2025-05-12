@@ -491,7 +491,7 @@ function extractDateFromText(text: string): string | null {
 	// Handle "Month DD, YYYY" format (e.g., "Oct 18, 2023")
 	const monthNamePattern = /([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})/i;
 	const monthNameMatch = cleaned.match(monthNamePattern);
-	if (monthNameMatch) {
+	if (monthNameMatch?.[1]) {
 		const [_, month, day, year] = monthNameMatch;
 		const monthNum = monthMap[month.toLowerCase()];
 		if (monthNum && day && year) {
@@ -524,24 +524,22 @@ function extractDateFromText(text: string): string | null {
 				// YYYY-MM-DD
 				return `${part1}-${part2.padStart(2, "0")}-${part3.padStart(2, "0")}`;
 				// DD-MM-YYYY
-			} else if (part1 && part2 && part3) {
+			}if (part1 && part2 && part3) {
 				return `${part3}-${part2.padStart(2, "0")}-${part1.padStart(2, "0")}`;
 			}
 			return null;
-		} else if (match[2]) {
+		}if (match[2]) {
 			// Year and month
 			const [_, part1, part2] = match;
 			if (part1?.length === 4) {
 				// YYYY-MM
 				return `${part1}-${part2.padStart(2, "0")}-01`;
 				// MM-YYYY
-			} else {
-				return part1 ? `${part2}-${part1.padStart(2, "0")}-01` : null;
 			}
-		} else {
+				return part1 ? `${part2}-${part1.padStart(2, "0")}-01` : null;
+		}
 			// Year only
 			return `${match[1]}-01-01`;
-		}
 	}
 
 	return null;
