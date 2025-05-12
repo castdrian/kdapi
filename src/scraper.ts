@@ -455,35 +455,122 @@ function extractSocialMediaLinks($: cheerio.CheerioAPI): SocialMedia {
 function extractDateFromText(text: string): string | null {
 	if (!text) return null;
 
-	// Handle various date formats
+	// Clean up input text
+	const cleaned = text
+		.trim()
+		.replace(/\s+/g, " ")
+		.toLowerCase();
+
+	// Month name mapping
+	const monthMap: Record<string, string> = {
+		jan: "01",
+		january: "01",
+		feb: "02",
+		february: "02",
+		mar: "03",
+		march: "03",
+		apr: "04",
+		april: "04",
+		may: "05",
+		jun: "06",
+		june: "06",
+		jul: "07",
+		july: "07",
+		aug: "08",
+		august: "08",
+		sep: "09",
+		september: "09",
+		oct: "10",
+		october: "10",
+		nov: "11",
+		november: "11",
+		dec: "12",
+		december: "12",
+	};
+
+	// Handle "Month DD, YYYY" format (e.g., "Oct 18, 2023")
+	const monthNamePattern = /([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})/i;
+	const monthNameMatch = cleaned.match(monthNamePattern);
+	if (monthNameMatch) {
+		const [_, month, day, year] = monthNameMatch;
+		const monthNum = monthMap[month.toLowerCase()];
+		if (monthNum && day && year) {
+			return `${year}-${monthNum}-${day.padStart(2, "0")}`;
+		}
+	}
+
+	// Handle numerical formats
 	const patterns = [
-		// Standard date formats
-		/(\d{4})[-.／](\d{1,2})[-.／](\d{1,2})/,
-		// Month name formats
-		/(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/i,
-		// Year-month only
-		/(\d{4})[-.／](\d{1,2})/,
+		// YYYY-MM-DD or YYYY.MM.DD
+		/(\d{4})[-./](\d{1,2})[-./](\d{1,2})/,
+		// DD-MM-YYYY or DD.MM.YYYY
+		/(\d{1,2})[-./](\d{1,2})[-./](\d{4})/,
+		// YYYY-MM or YYYY.MM
+		/(\d{4})[-./](\d{1,2})/,
+		// MM-YYYY or MM.YYYY
+		/(\d{1,2})[-./](\d{4})/,
 		// Year only
 		/(\d{4})/,
 	];
 
 	for (const pattern of patterns) {
-		const match = text.match(pattern);
-		if (match) {
-			const [_, year, month, day] = match;
-			if (day) {
-				return month && day
-					? `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-					: null;
+		const match = cleaned.match(pattern);
+		if (!match) continue;
+
+		if (match[3]) {
+			// Full date format
+			const [_, part1, part2, part3] = match;
+			if (part1 && part2 && part3 && part1.length === 4) {
+				// YYYY-MM-DD
+				return `${part1}-${part2.padStart(2, "0")}-${part3.padStart(2, "0")}`;
+				// DD-MM-YYYY
+			} else if (part1 && part2 && part3) {
+				return `${part3}-${part2.padStart(2, "0")}-${part1.padStart(2, "0")}`;
 			}
-			if (month) {
-				return `${year}-${month.padStart(2, "0")}-01`;
+			return null;
+		} else if (match[2]) {
+			// Year and month
+			const [_, part1, part2] = match;
+			if (part1?.length === 4) {
+				// YYYY-MM
+				return `${part1}-${part2.padStart(2, "0")}-01`;
+				// MM-YYYY
+			} else {
+				return part1 ? `${part2}-${part1.padStart(2, "0")}-01` : null;
 			}
-			return `${year}-01-01`;
+		} else {
+			// Year only
+			return `${match[1]}-01-01`;
 		}
 	}
 
 	return null;
+}
+
+function parsePeriod(text: string): { start: string; end?: string } | null {
+	if (!text) return null;
+
+	// Clean up and normalize the text
+	const cleaned = text.trim().toLowerCase();
+
+	// Check for "present"
+	const isPresent = cleaned.includes("present");
+
+	// Split on common separators and clean up
+	const [startPart, endPart] = cleaned.split(/[-~～]|to|until/i).map((p) => p.trim());
+	if (!startPart) return null;
+
+	const start = extractDateFromText(startPart);
+	if (!start) return null;
+
+	if (endPart && !isPresent) {
+		const end = extractDateFromText(endPart);
+		if (end) {
+			return { start, end };
+		}
+	}
+
+	return { start };
 }
 
 function extractCompanyInfo($: cheerio.CheerioAPI): {
@@ -498,43 +585,39 @@ function extractCompanyInfo($: cheerio.CheerioAPI): {
 		}>,
 	};
 
-	// Get current company from data grid - clean up colons
-	const companyCell = $('.data-grid .equal:contains("Company:")');
-	if (companyCell.length) {
-		const currentCompany = companyCell
-			.next()
-			.text()
-			.trim()
-			.replace(/[:：]\s*$/, ""); // Remove trailing colons
-		if (currentCompany && currentCompany !== "-") {
-			company.current = currentCompany;
-		}
-	}
+	// Use a Map to track unique periods and prevent duplicates
+	const periodMap = new Map<
+		string,
+		{ name: string; period: { start: string; end?: string } }
+	>();
 
-	// Extract company history with clean names
 	$("#star-companies .cell, #company-info .cell").each((_, el) => {
 		const $cell = $(el);
-		const name = $cell
-			.find(".name")
-			.text()
-			.trim()
-			.replace(/[:：]\s*$/, ""); // Remove trailing colons
+		const name = cleanText($cell.find(".name").text().replace(/[:：]\s*$/, ""));
+		const periodText = cleanText($cell.find(".value").text());
 
-		const periodText = $cell.find(".period").text().trim();
-		const parsedPeriod = parsePeriod(periodText);
 		if (!name || name === "-") return;
 
-		if (name && parsedPeriod) {
-			company.history.push({
-				name,
-				period: parsedPeriod,
-			});
+		const parsedPeriod = parsePeriod(periodText);
+		if (parsedPeriod) {
+			// Create unique key for the period
+			const periodKey = `${parsedPeriod.start}-${parsedPeriod.end || "present"}`;
+
+			// Only add if we haven't seen this period before
+			if (!periodMap.has(periodKey)) {
+				periodMap.set(periodKey, { name, period: parsedPeriod });
+			}
 		}
 
-		// If no current company set, use the first company as current
+		// Set current company if not already set
 		if (!company.current) {
 			company.current = name;
 		}
+	});
+
+	// Convert map values to array and sort by start date
+	company.history = Array.from(periodMap.values()).sort((a, b) => {
+		return new Date(b.period.start).getTime() - new Date(a.period.start).getTime();
 	});
 
 	return cleanupUndefined(company);
@@ -718,8 +801,8 @@ async function extractGroupData(
 			gender === "female"
 				? GroupType.Girl
 				: gender === "male"
-					? GroupType.Boy
-					: GroupType.Coed,
+				? GroupType.Boy
+				: GroupType.Coed,
 		profileUrl: url,
 		imageUrl: extractImageUrl($) || "",
 		active: false,
@@ -814,10 +897,10 @@ async function extractGroupData(
 	group.status = group.active ? Status.Active : Status.Inactive;
 
 	// Extract debut date
-	const debutCell = $('.data-grid .equal:contains("Debut:")');
+	const debutCell = $('.data-grid .cell:contains("Debut:")');
 	if (debutCell.length) {
-		const debutText = debutCell.next().text().trim();
-		const debutDate = normalizeDate(debutText);
+		const debutText = cleanText(debutCell.find(".value").text());
+		const debutDate = extractDateFromText(debutText);
 		if (debutDate) {
 			if (!group.groupInfo)
 				group.groupInfo = {
@@ -1093,28 +1176,42 @@ function extractIdolCareerInfo(
 ): NonNullable<Idol["careerInfo"]> {
 	const info: NonNullable<Idol["careerInfo"]> = { activeYears: [] };
 
-	// Extract debut date
-	const debutCell = $('.data-grid .equal:contains("Debut:")');
+	// Extract debut date from dedicated field
+	const debutCell = $('.data-grid .cell:contains("Debut:")');
 	if (debutCell.length) {
-		const debutText = debutCell.next().text().trim();
-		const date = extractDateFromText(debutText);
-		if (date) info.debutDate = date;
+		const debutText = cleanText(debutCell.find(".value").text());
+		const debutDate = extractDateFromText(debutText);
+		if (debutDate) {
+			info.debutDate = debutDate;
+		}
 	}
 
-	// Extract active years
-	const activeYearsText = $('.data-grid .equal:contains("Active years:")')
-		.next()
-		.text()
-		.trim();
-	if (activeYearsText) {
-		info.activeYears = activeYearsText.split(",").map((period) => {
-			const [start, end] = period.trim().split("-");
-			return {
-				start: `${(start ?? "").trim()}-01-01`,
-				end: end ? `${end.trim()}-12-31` : undefined,
-			};
-		});
-	}
+	// Use Set to store unique period strings
+	const uniquePeriods = new Set<string>();
+
+	// Extract company history
+	$("#star-companies .cell, #company-info .cell").each((_, el) => {
+		const $cell = $(el);
+		const periodText = cleanText($cell.find(".value").text());
+
+		const period = parsePeriod(periodText);
+		if (period) {
+			// Create unique key for the period
+			const periodKey = `${period.start}-${period.end || "present"}`;
+
+			// Only add if we haven't seen this period before
+			if (!uniquePeriods.has(periodKey)) {
+				uniquePeriods.add(periodKey);
+				if (!info.activeYears) info.activeYears = [];
+				info.activeYears.push(period);
+			}
+		}
+	});
+
+	// Sort active years by start date (most recent first)
+	info.activeYears.sort((a, b) => {
+		return new Date(b.start).getTime() - new Date(a.start).getTime();
+	});
 
 	return cleanupUndefined(info);
 }
@@ -1386,220 +1483,8 @@ function getEndpointForType(
 	return gender === "female"
 		? ENDPOINTS.girlGroups
 		: gender === "male"
-			? ENDPOINTS.boyGroups
-			: ENDPOINTS.coedGroups;
-}
-
-function parsePeriod(text: string): { start: string; end?: string } | null {
-	if (!text) return null;
-
-	// First try to extract date ranges with various formats
-	const periodPatterns = [
-		// Full date range (YYYY-MM-DD to YYYY-MM-DD)
-		/(\d{4})[-.／](\d{1,2})[-.／](\d{1,2})\s*(?:-|~|to|until)\s*(\d{4})[-.／](\d{1,2})[-.／](\d{1,2})/i,
-		// Year-month range (YYYY-MM to YYYY-MM)
-		/(\d{4})[-.／](\d{1,2})\s*(?:-|~|to|until)\s*(\d{4})[-.／](\d{1,2})/i,
-		// Year range (YYYY to YYYY)
-		/(\d{4})\s*(?:-|~|to|until)\s*(\d{4})/i,
-		// Single full date (YYYY-MM-DD)
-		/(\d{4})[-.／](\d{1,2})[-.／](\d{1,2})/,
-		// Single year-month (YYYY-MM)
-		/(\d{4})[-.／](\d{1,2})/,
-		// Single year (YYYY)
-		/(\d{4})/,
-	];
-
-	const monthToNum = (month: string): string => {
-		const months: Record<string, string> = {
-			january: "01",
-			february: "02",
-			march: "03",
-			april: "04",
-			may: "05",
-			june: "06",
-			july: "07",
-			august: "08",
-			september: "09",
-			october: "10",
-			november: "11",
-			december: "12",
-		};
-		return months[month.toLowerCase()] || "01";
-	};
-
-	for (const pattern of periodPatterns) {
-		const match = text.match(pattern);
-		if (match) {
-			// Remove the full match from the array
-			const groups = match.slice(1).filter(Boolean); // Remove undefined values
-
-			if (groups.length === 6) {
-				// Full date range
-				const [startYear, startMonth, startDay, endYear, endMonth, endDay] =
-					groups;
-				if (
-					startYear &&
-					startMonth &&
-					startDay &&
-					endYear &&
-					endMonth &&
-					endDay
-				) {
-					return {
-						start: `${startYear}-${startMonth.padStart(2, "0")}-${startDay.padStart(2, "0")}`,
-						end: `${endYear}-${endMonth.padStart(2, "0")}-${endDay.padStart(2, "0")}`,
-					};
-				}
-			} else if (groups.length === 4) {
-				// Year-month range
-				const [startYear, startMonth, endYear, endMonth] = groups;
-				if (startYear && startMonth && endYear && endMonth) {
-					return {
-						start: `${startYear}-${startMonth.padStart(2, "0")}-01`,
-						end: `${endYear}-${endMonth.padStart(2, "0")}-${getLastDayOfMonth(
-							Number(endYear),
-							Number(endMonth),
-						)}`,
-					};
-				}
-			} else if (groups.length === 3) {
-				// Single full date
-				const [year, month, day] = groups;
-				if (year && month && day) {
-					return {
-						start: `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`,
-					};
-				}
-			} else if (groups.length === 2 && !text.includes("present")) {
-				// Year range (but not "year to present")
-				const [startYear, endYear] = groups;
-				if (startYear && endYear) {
-					return {
-						start: `${startYear}-01-01`,
-						end: `${endYear}-12-31`,
-					};
-				}
-			} else if (groups.length === 1) {
-				// Single year
-				const [year] = groups;
-				if (year) {
-					// For a single year, set the date range to cover the whole year
-					return {
-						start: `${year}-01-01`,
-						end: `${year}-12-31`, // Changed to include the full year
-					};
-				}
-			}
-		}
-	}
-
-	// Handle text date ranges (e.g., "January 2020 to March 2021")
-	const monthNames =
-		"January|February|March|April|May|June|July|August|September|October|November|December";
-	const textDatePattern = new RegExp(
-		`(${monthNames})\\s+(\\d{1,2})?(?:st|nd|rd|th)?,?\\s*(\\d{4})\\s*(?:to|until|-)\\s*(${monthNames})?\\s*(\\d{1,2})?(?:st|nd|rd|th)?,?\\s*(\\d{4})?`,
-		"i",
-	);
-
-	const textMatch = text.match(textDatePattern);
-	if (textMatch) {
-		const [_, startMonth, startDay, startYear, endMonth, endDay, endYear] =
-			textMatch;
-
-		if (startMonth && startYear) {
-			const startMonthNum = monthToNum(startMonth);
-			const normalizedStartDay = startDay || "1";
-			const start = `${startYear}-${startMonthNum}-${normalizedStartDay.padStart(
-				2,
-				"0",
-			)}`;
-
-			let end: string | undefined;
-			if (endYear && endMonth) {
-				const endMonthNum = monthToNum(endMonth);
-				const normalizedEndDay =
-					endDay || getLastDayOfMonth(Number(endYear), Number(endMonthNum));
-				end = `${endYear}-${endMonthNum}-${normalizedEndDay
-					.toString()
-					.padStart(2, "0")}`;
-			}
-
-			return { start, ...(end && { end }) };
-		}
-	}
-
-	// Handle "present" cases
-	if (text.toLowerCase().includes("present")) {
-		const presentPattern = new RegExp(
-			`(${monthNames})\\s+(\\d{1,2})?(?:st|nd|rd|th)?,?\\s*(\\d{4})\\s*(?:to|until|-)\\s*present`,
-			"i",
-		);
-
-		const presentMatch = text.match(presentPattern);
-		if (presentMatch) {
-			const [_, monthStr, dayStr, yearStr] = presentMatch;
-			if (monthStr && yearStr) {
-				const month = monthToNum(monthStr);
-				const day = dayStr || "1";
-				return {
-					start: `${yearStr}-${month}-${day.padStart(2, "0")}`,
-				};
-			}
-		}
-
-		// Try simpler year-to-present pattern
-		const yearPresentMatch = text.match(/(\d{4})\s*(?:to|until|-)?\s*present/i);
-		if (yearPresentMatch?.[1]) {
-			return {
-				start: `${yearPresentMatch[1]}-01-01`,
-			};
-		}
-	}
-
-	return null;
-}
-
-function getLastDayOfMonth(year: number, month: number): string {
-	return new Date(year, month, 0).getDate().toString().padStart(2, "0");
-}
-
-function normalizeDate(date: string): string | null {
-	if (!date) return null;
-
-	// Handle various date formats
-	const cleaned = date
-		.trim()
-		.replace(/[．。､、]/g, ".")
-		.replace(/[／/]/g, "-");
-
-	const formats = [
-		// Full date formats
-		/(\d{4})-(\d{1,2})-(\d{1,2})/,
-		/(\d{4})\.(\d{1,2})\.(\d{1,2})/,
-		// Year-month formats
-		/(\d{4})-(\d{1,2})/,
-		/(\d{4})\.(\d{1,2})/,
-		// Year only
-		/(\d{4})/,
-	];
-
-	for (const format of formats) {
-		const match = cleaned.match(format);
-		if (match) {
-			const [_, year, month, day] = match;
-			if (day) {
-				return month && day
-					? `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-					: null;
-			}
-			if (month) {
-				return `${year}-${month.padStart(2, "0")}-01`;
-			}
-			return `${year}-01-01`;
-		}
-	}
-
-	return null;
+		? ENDPOINTS.boyGroups
+		: ENDPOINTS.coedGroups;
 }
 
 async function scrapeProfiles(options: {
@@ -1981,3 +1866,21 @@ function isInactiveStatus(statusText: string, content: string): boolean {
 	// Assume active if no inactive indicators found
 	return false;
 }
+function normalizeDate(debutText: string): string | null {
+	if (!debutText) return null;
+
+	// Clean up the input text
+	const cleaned = debutText
+		.trim()
+		.replace(/\s+/g, " ")
+		.replace(/[．。､、]/g, ".")
+		.replace(/[／/]/g, "-");
+
+	// Try to parse the date using the existing extractDateFromText function
+	const date = extractDateFromText(cleaned);
+	if (date) return date;
+
+	// If no date could be parsed, return null
+	return null;
+}
+
