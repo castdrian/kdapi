@@ -12,10 +12,6 @@ on:
         description: 'Skip scraping and just publish current version'
         type: boolean
         default: false
-      force_scrape:
-        description: 'Force scrape without using cache'
-        type: boolean
-        default: false
       force_release:
         description: 'Force release even if no changes'
         type: boolean
@@ -59,11 +55,7 @@ jobs:
           (github.event_name == 'schedule')
         id: scrape
         run: |
-          if [ "${{ inputs.force_scrape }}" = "true" ]; then
-            bun run scrape:force
-          else
-            bun run scrape:prod
-          fi
+          bun run scrape:prod
           
           if git diff --quiet data/; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
