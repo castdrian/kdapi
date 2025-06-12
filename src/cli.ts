@@ -37,6 +37,21 @@ program
 
 		const useCache = options.cache && !options.force;
 
+		console.log(
+			`Running with options: ${JSON.stringify(
+				{
+					debug: options.debug,
+					sampleSize: options.sample,
+					batchSize: options.batchSize,
+					delay: options.delay,
+					useCache: useCache,
+					forceRefresh: options.force,
+				},
+				null,
+				2,
+			)}`,
+		);
+
 		if (options.debug) {
 			await runDebugMode({
 				sampleSize: Number.parseInt(options.sample),

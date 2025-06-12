@@ -456,10 +456,7 @@ function extractDateFromText(text: string): string | null {
 	if (!text) return null;
 
 	// Clean up input text
-	const cleaned = text
-		.trim()
-		.replace(/\s+/g, " ")
-		.toLowerCase();
+	const cleaned = text.trim().replace(/\s+/g, " ").toLowerCase();
 
 	// Month name mapping
 	const monthMap: Record<string, string> = {
@@ -524,11 +521,13 @@ function extractDateFromText(text: string): string | null {
 				// YYYY-MM-DD
 				return `${part1}-${part2.padStart(2, "0")}-${part3.padStart(2, "0")}`;
 				// DD-MM-YYYY
-			}if (part1 && part2 && part3) {
+			}
+			if (part1 && part2 && part3) {
 				return `${part3}-${part2.padStart(2, "0")}-${part1.padStart(2, "0")}`;
 			}
 			return null;
-		}if (match[2]) {
+		}
+		if (match[2]) {
 			// Year and month
 			const [_, part1, part2] = match;
 			if (part1?.length === 4) {
@@ -536,10 +535,10 @@ function extractDateFromText(text: string): string | null {
 				return `${part1}-${part2.padStart(2, "0")}-01`;
 				// MM-YYYY
 			}
-				return part1 ? `${part2}-${part1.padStart(2, "0")}-01` : null;
+			return part1 ? `${part2}-${part1.padStart(2, "0")}-01` : null;
 		}
-			// Year only
-			return `${match[1]}-01-01`;
+		// Year only
+		return `${match[1]}-01-01`;
 	}
 
 	return null;
@@ -555,7 +554,9 @@ function parsePeriod(text: string): { start: string; end?: string } | null {
 	const isPresent = cleaned.includes("present");
 
 	// Split on common separators and clean up
-	const [startPart, endPart] = cleaned.split(/[-~～]|to|until/i).map((p) => p.trim());
+	const [startPart, endPart] = cleaned
+		.split(/[-~～]|to|until/i)
+		.map((p) => p.trim());
 	if (!startPart) return null;
 
 	const start = extractDateFromText(startPart);
@@ -591,7 +592,12 @@ function extractCompanyInfo($: cheerio.CheerioAPI): {
 
 	$("#star-companies .cell, #company-info .cell").each((_, el) => {
 		const $cell = $(el);
-		const name = cleanText($cell.find(".name").text().replace(/[:：]\s*$/, ""));
+		const name = cleanText(
+			$cell
+				.find(".name")
+				.text()
+				.replace(/[:：]\s*$/, ""),
+		);
 		const periodText = cleanText($cell.find(".value").text());
 
 		if (!name || name === "-") return;
@@ -615,7 +621,9 @@ function extractCompanyInfo($: cheerio.CheerioAPI): {
 
 	// Convert map values to array and sort by start date
 	company.history = Array.from(periodMap.values()).sort((a, b) => {
-		return new Date(b.period.start).getTime() - new Date(a.period.start).getTime();
+		return (
+			new Date(b.period.start).getTime() - new Date(a.period.start).getTime()
+		);
 	});
 
 	return cleanupUndefined(company);
@@ -799,8 +807,8 @@ async function extractGroupData(
 			gender === "female"
 				? GroupType.Girl
 				: gender === "male"
-				? GroupType.Boy
-				: GroupType.Coed,
+					? GroupType.Boy
+					: GroupType.Coed,
 		profileUrl: url,
 		imageUrl: extractImageUrl($) || "",
 		active: false,
@@ -1250,8 +1258,9 @@ async function processIncrementalScraping(options: {
 	existingData: DataSet;
 	type: "idol" | "group";
 	gender: "female" | "male" | "coed";
+	forceRefresh?: boolean; // Add forceRefresh parameter
 }): Promise<(Idol | Group)[]> {
-	const { existingData, type, gender } = options;
+	const { existingData, type, gender, forceRefresh = false } = options;
 
 	// Get existing profile URLs
 	const existingUrls = new Set(
@@ -1265,22 +1274,27 @@ async function processIncrementalScraping(options: {
 	const mainPageHtml = await parseProfileWithCache(
 		`${BASE_URL}${endpoint}`,
 		type,
-		false,
+		forceRefresh, // Pass forceRefresh here
 	);
 
 	const $ = cheerio.load(mainPageHtml);
 	const allUrls = extractProfileLinks($);
 
-	// Filter out already processed URLs
-	const newUrls = allUrls.filter((url) => !existingUrls.has(url));
-	logger.info(`Found ${newUrls.length} new profiles to process`);
+	// When forceRefresh is true, we want to process ALL URLs, not just new ones
+	const urlsToProcess = forceRefresh
+		? allUrls
+		: allUrls.filter((url) => !existingUrls.has(url));
+	logger.info(
+		`Found ${urlsToProcess.length} ${forceRefresh ? "" : "new "}profiles to process`,
+	);
 
-	// Process new URLs
+	// Process URLs
 	return await scrapeProfiles({
 		type,
 		gender,
-		urls: newUrls,
-		useCache: true,
+		urls: urlsToProcess,
+		useCache: !forceRefresh, // Don't use cache when forceRefresh is true
+		forceRefresh, // Pass forceRefresh to scrapeProfiles
 	});
 }
 
@@ -1331,6 +1345,7 @@ async function runProductionMode(options: {
 		const newProfiles = await processIncrementalScraping({
 			existingData: dataset,
 			...category,
+			forceRefresh: options.forceRefresh, // Pass forceRefresh to processIncrementalScraping
 		});
 
 		// Merge new profiles with existing data
@@ -1481,8 +1496,8 @@ function getEndpointForType(
 	return gender === "female"
 		? ENDPOINTS.girlGroups
 		: gender === "male"
-		? ENDPOINTS.boyGroups
-		: ENDPOINTS.coedGroups;
+			? ENDPOINTS.boyGroups
+			: ENDPOINTS.coedGroups;
 }
 
 async function scrapeProfiles(options: {
@@ -1492,6 +1507,7 @@ async function scrapeProfiles(options: {
 	sampleSize?: number;
 	urls?: string[];
 	useCache?: boolean;
+	forceRefresh?: boolean; // Add forceRefresh parameter
 }): Promise<(Idol | Group)[]> {
 	const {
 		type,
@@ -1500,6 +1516,7 @@ async function scrapeProfiles(options: {
 		sampleSize = 5,
 		urls,
 		useCache = true,
+		forceRefresh = false, // Default to false
 	} = options;
 
 	startTime = Date.now(); // Reset start time for each scrape session
@@ -1512,7 +1529,7 @@ async function scrapeProfiles(options: {
 			const mainPageHtml = await parseProfileWithCache(
 				`${BASE_URL}${endpoint}`,
 				type,
-				false,
+				forceRefresh, // Pass forceRefresh here
 			);
 			const $ = cheerio.load(mainPageHtml);
 			profileUrls = extractProfileLinks($);
@@ -1528,14 +1545,17 @@ async function scrapeProfiles(options: {
 		const existingData = loadExistingData();
 		const processedUrls = new Set(getAllProfileUrls(existingData));
 
-		// Filter out already processed URLs
-		const newUrls = profileUrls.filter((url) => !processedUrls.has(url));
+		// Filter out already processed URLs unless forceRefresh is true
+		const newUrls = forceRefresh
+			? profileUrls
+			: profileUrls.filter((url) => !processedUrls.has(url));
 		const total = newUrls.length;
 
 		logger.info(`Starting ${gender} ${type} scraping...`);
 		logger.info(`Total profiles to process: ${total}`);
-		logger.info(`Using cache: ${useCache}`);
-		if (processedUrls.size > 0) {
+		logger.info(`Using cache: ${useCache && !forceRefresh}`); // Update this line
+		if (!forceRefresh && processedUrls.size > 0) {
+			// Only show this if not forcing refresh
 			logger.info(`Skipping ${processedUrls.size} already processed profiles`);
 		}
 
@@ -1580,13 +1600,17 @@ async function scrapeProfiles(options: {
 
 		const processUrl = async (url: string) => {
 			try {
-				// Try cache first
-				const html = await parseProfileWithCache(url, type, !useCache);
+				// Try cache first, but respect forceRefresh
+				const html = await parseProfileWithCache(
+					url,
+					type,
+					forceRefresh || !useCache, // Force refresh if forceRefresh is true or useCache is false
+				);
 				const $ = cheerio.load(html);
 				const result =
 					type === "idol"
 						? await parseIdolProfile($, url)
-						: await extractGroupData($, url, gender); // Pass gender parameter
+						: await extractGroupData($, url, gender);
 
 				processed++;
 				updateGlobalProgress();
@@ -1881,4 +1905,3 @@ function normalizeDate(debutText: string): string | null {
 	// If no date could be parsed, return null
 	return null;
 }
-
