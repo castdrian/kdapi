@@ -19,7 +19,7 @@ program
 	.option("-s, --sample <number>", "Number of samples in debug mode", "5")
 	.option("--delay <ms>", "Delay between requests", "2000")
 	.option("--batch-size <number>", "Batch size for requests", "5")
-	.option("--cache", "Use cached HTML files", true)
+	.option("--no-cache", "Disable using cached HTML files")
 	.option("--force", "Force refresh all profiles", false)
 	.action(async (options) => {
 		// Create cache directories
@@ -35,19 +35,21 @@ program
 			}
 		}
 
+		const useCache = options.cache && !options.force;
+
 		if (options.debug) {
 			await runDebugMode({
 				sampleSize: Number.parseInt(options.sample),
 				randomSamples: true,
 				batchSize: Number.parseInt(options.batchSize),
 				delayBetweenBatches: Number.parseInt(options.delay),
-				useCache: options.cache,
+				useCache: useCache,
 			});
 		} else {
 			await runProductionMode({
 				batchSize: Number.parseInt(options.batchSize),
 				delayBetweenBatches: Number.parseInt(options.delay),
-				useCache: options.cache,
+				useCache: useCache,
 				forceRefresh: options.force,
 			});
 		}
