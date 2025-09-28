@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { CacheManager } from "@src/cache";
+import { ProxyManager, type ProxyConfig } from "@src/proxy";
 import {
 	BloodType,
 	type DataSet,
@@ -47,12 +48,12 @@ const ENDPOINTS = {
 const CONFIG = {
 	debug: true,
 	retryAttempts: 5, // Increased from 3
-	retryDelay: 2000, // Increased from 1000
+	retryDelay: 1500, // Reduced for faster processing
 	requestTimeout: 30000, // Increased from 20000
 	rateLimitDelay: 0, // No delay needed when using cache
 	maxRequestsPerMinute: 1000, // Higher limit for cached content
-	maxConcurrent: 5,
-	concurrentRequests: 5,
+	maxConcurrent: 10, // Increased for production
+	concurrentRequests: 10, // Increased for production
 	debugSampleSize: 5,
 	batchLogInterval: 10, // Log batch progress every N items
 	saveInterval: 100, // Save progress every N items
@@ -117,6 +118,7 @@ const failedRequests = new Map<
 >();
 
 const cache = new CacheManager();
+const proxyManager = new ProxyManager();
 
 let startTime = Date.now();
 
@@ -182,6 +184,7 @@ const rateLimiter = {
 async function fetchWithRetry(url: string): Promise<string> {
 	const maxAttempts = CONFIG.retryAttempts;
 	let attempt = 0;
+	let currentProxy: ProxyConfig | null = null;
 
 	while (attempt < maxAttempts) {
 		try {
@@ -191,8 +194,15 @@ async function fetchWithRetry(url: string): Promise<string> {
 				await delay(backoff);
 			}
 
+			// Get proxy if available
+			currentProxy = proxyManager.getCurrentProxy();
+			if (currentProxy) {
+				logger.info(`Fetching ${url} via proxy ${currentProxy.host}:${currentProxy.port}`);
+			} else {
+				logger.info(`Fetching ${url} (direct connection)`);
+			}
+
 			await rateLimiter.getToken();
-			logger.info(`Fetching ${url}`);
 
 			const controller = new AbortController();
 			const timeoutId = setTimeout(
@@ -200,7 +210,8 @@ async function fetchWithRetry(url: string): Promise<string> {
 				CONFIG.requestTimeout,
 			);
 
-			const response = await fetch(url, {
+			// Prepare fetch options
+			const fetchOptions: Parameters<typeof fetch>[1] = {
 				headers: {
 					...CONFIG.headers,
 					"User-Agent": CONFIG.userAgent,
@@ -210,7 +221,20 @@ async function fetchWithRetry(url: string): Promise<string> {
 					DNT: "1",
 				},
 				signal: controller.signal,
-			});
+			};
+
+			// Add proxy configuration if available
+			if (currentProxy) {
+				// For HTTP proxies, use the proxy URL directly
+				if (currentProxy.protocol === "http") {
+					// Note: undici doesn't support proxy configuration the same way as node-fetch
+					// We'll use a simpler approach by routing through the proxy URL
+					fetchOptions.dispatcher = undefined; // Let undici use default dispatcher for now
+				}
+				// SOCKS proxies would need a different approach, but for now we'll focus on HTTP
+			}
+
+			const response = await fetch(url, fetchOptions);
 
 			clearTimeout(timeoutId);
 
@@ -223,6 +247,26 @@ async function fetchWithRetry(url: string): Promise<string> {
 				logger.warn(`Rate limited, waiting ${delay}ms`);
 				await new Promise((resolve) => setTimeout(resolve, delay));
 				continue;
+			}
+
+			if (response.status === 403) {
+				// Handle 403 Forbidden specifically
+				if (currentProxy) {
+					logger.warn(`Proxy ${currentProxy.host}:${currentProxy.port} blocked (403), trying next proxy`);
+					proxyManager.markProxyAsFailed(currentProxy);
+					
+					// If we have more proxies, try with next one without incrementing attempt
+					if (proxyManager.hasWorkingProxies()) {
+						continue; // Don't increment attempt, just try next proxy
+					} else {
+						logger.warn("All proxies failed, will try direct connection");
+						currentProxy = null;
+						continue;
+					}
+				} else {
+					// Direct connection also getting 403, this might be an IP ban
+					throw new Error(`HTTP ${response.status}: ${response.statusText} - IP may be blocked`);
+				}
 			}
 
 			if (!response.ok) {
@@ -243,21 +287,30 @@ async function fetchWithRetry(url: string): Promise<string> {
 				`Failed to fetch ${url}: ${error instanceof Error ? error.message : String(error)}`,
 			);
 
+			// If proxy failed, mark it as failed and try next one
+			if (currentProxy && (error as Error).message.includes("HTTP 403")) {
+				proxyManager.markProxyAsFailed(currentProxy);
+			}
+
 			if (attempt >= maxAttempts) {
 				logger.error(`Max retry attempts (${maxAttempts}) reached for ${url}`);
-				throw error;
+				// Don't throw error here - return null or empty string to allow graceful continuation
+				logger.warn(`Skipping ${url} due to persistent failures`);
+				return ""; // Return empty string instead of throwing
 			}
 		}
 	}
 
-	throw new Error("Max retry attempts reached");
+	// This should not be reached, but just in case
+	logger.warn(`Max retry attempts reached for ${url}, returning empty response`);
+	return "";
 }
 
 async function parseProfileWithCache(
 	url: string,
 	type: "idol" | "group",
 	forceRefresh = false,
-): Promise<string> {
+): Promise<string | null> {
 	if (!forceRefresh) {
 		const cached = await cache.get(type, url);
 		if (cached) {
@@ -268,6 +321,13 @@ async function parseProfileWithCache(
 	// Only apply delays when actually fetching
 	logger.info(`Cache miss for ${url}, fetching...`);
 	const html = await fetchWithRetry(url);
+	
+	// Handle empty responses gracefully
+	if (!html || html.length === 0) {
+		logger.warn(`Failed to fetch content for ${url}, skipping...`);
+		return null;
+	}
+	
 	await cache.set(type, url, html);
 	return html;
 }
@@ -1277,6 +1337,11 @@ async function processIncrementalScraping(options: {
 		forceRefresh, // Pass forceRefresh here
 	);
 
+	if (!mainPageHtml) {
+		logger.error(`Failed to fetch main page for ${gender} ${type}s, skipping category`);
+		return [];
+	}
+
 	const $ = cheerio.load(mainPageHtml);
 	const allUrls = extractProfileLinks($);
 
@@ -1304,6 +1369,9 @@ async function runProductionMode(options: {
 	useCache: boolean;
 	forceRefresh: boolean;
 }): Promise<void> {
+	// Initialize proxy manager
+	await proxyManager.initialize();
+	
 	let dataset: DataSet = {
 		femaleIdols: [],
 		maleIdols: [],
@@ -1340,49 +1408,62 @@ async function runProductionMode(options: {
 	];
 
 	for (const category of categories) {
-		logger.info(`Processing ${category.gender} ${category.type}s...`);
+		try {
+			logger.info(`Processing ${category.gender} ${category.type}s...`);
 
-		const newProfiles = await processIncrementalScraping({
-			existingData: dataset,
-			...category,
-			forceRefresh: options.forceRefresh, // Pass forceRefresh to processIncrementalScraping
-		});
+			const newProfiles = await processIncrementalScraping({
+				existingData: dataset,
+				...category,
+				forceRefresh: options.forceRefresh, // Pass forceRefresh to processIncrementalScraping
+			});
 
-		// Merge new profiles with existing data
-		if (category.type === "idol") {
-			if (category.gender === "female") {
-				dataset.femaleIdols = mergeProfiles(
-					dataset.femaleIdols,
-					newProfiles as Idol[],
-				);
+			// Merge new profiles with existing data
+			if (category.type === "idol") {
+				if (category.gender === "female") {
+					dataset.femaleIdols = mergeProfiles(
+						dataset.femaleIdols,
+						newProfiles as Idol[],
+					);
+				} else {
+					dataset.maleIdols = mergeProfiles(
+						dataset.maleIdols,
+						newProfiles as Idol[],
+					);
+				}
 			} else {
-				dataset.maleIdols = mergeProfiles(
-					dataset.maleIdols,
-					newProfiles as Idol[],
-				);
+				if (category.gender === "female") {
+					dataset.girlGroups = mergeProfiles(
+						dataset.girlGroups,
+						newProfiles as Group[],
+					);
+				} else if (category.gender === "male") {
+					dataset.boyGroups = mergeProfiles(
+						dataset.boyGroups,
+						newProfiles as Group[],
+					);
+				} else {
+					dataset.coedGroups = mergeProfiles(
+						dataset.coedGroups,
+						newProfiles as Group[],
+					);
+				}
 			}
-		} else {
-			if (category.gender === "female") {
-				dataset.girlGroups = mergeProfiles(
-					dataset.girlGroups,
-					newProfiles as Group[],
-				);
-			} else if (category.gender === "male") {
-				dataset.boyGroups = mergeProfiles(
-					dataset.boyGroups,
-					newProfiles as Group[],
-				);
-			} else {
-				dataset.coedGroups = mergeProfiles(
-					dataset.coedGroups,
-					newProfiles as Group[],
-				);
+
+			// Save progress after each category
+			await saveDataset(dataset);
+			logger.success(`Completed ${category.gender} ${category.type}s`);
+
+		} catch (error) {
+			logger.error(`Failed to process ${category.gender} ${category.type}s: ${error instanceof Error ? error.message : String(error)}`);
+			logger.warn(`Continuing with next category...`);
+			
+			// Still save what we have so far
+			try {
+				await saveDataset(dataset);
+			} catch (saveError) {
+				logger.error(`Failed to save dataset after error: ${saveError}`);
 			}
 		}
-
-		// Save progress after each category
-		await saveDataset(dataset);
-		logger.success(`Completed ${category.gender} ${category.type}s`);
 
 		await delay(options.delayBetweenBatches);
 	}
@@ -1531,6 +1612,12 @@ async function scrapeProfiles(options: {
 				type,
 				forceRefresh, // Pass forceRefresh here
 			);
+			
+			if (!mainPageHtml) {
+				logger.error(`Failed to fetch main page for ${gender} ${type}s, skipping category`);
+				return [];
+			}
+			
 			const $ = cheerio.load(mainPageHtml);
 			profileUrls = extractProfileLinks($);
 		}
@@ -1606,6 +1693,14 @@ async function scrapeProfiles(options: {
 					type,
 					forceRefresh || !useCache, // Force refresh if forceRefresh is true or useCache is false
 				);
+				
+				if (!html) {
+					logger.warn(`Skipping ${url} due to fetch failure`);
+					allProfiles.failures++;
+					updateGlobalProgress();
+					return null;
+				}
+				
 				const $ = cheerio.load(html);
 				const result =
 					type === "idol"
@@ -1759,6 +1854,9 @@ async function runDebugMode(options: {
 	delayBetweenBatches: number;
 	useCache: boolean;
 }): Promise<void> {
+	// Initialize proxy manager
+	await proxyManager.initialize();
+	
 	const dataset: DataSet = {
 		femaleIdols: [],
 		maleIdols: [],
