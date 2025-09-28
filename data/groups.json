@@ -1,5 +1,178 @@
 {
-  "girlGroups": [],
-  "boyGroups": [],
-  "coedGroups": []
+  "girlGroups": [
+    {
+      "id": "94ae8188-a639-4f79-b742-391aa959fc7e",
+      "type": "girl",
+      "profileUrl": "https://kpopping.com/profiles/group/BEWAVE",
+      "imageUrl": "https://kpopping.com/documents/fe/2/social-widget/BEWAVE-fullPicture(6).webp?v=a2406",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": "GOLDDUST Entertainment",
+        "history": [
+          {
+            "name": "GOLDDUST Entertainment",
+            "period": {
+              "start": "2024-02-19"
+            }
+          }
+        ]
+      },
+      "socialMedia": {
+        "facebook": "https://www.facebook.com/BEWAVEofficial",
+        "twitter": "https://twitter.com/BEWAVE_official",
+        "instagram": "https://www.instagram.com/bewave_offcl/",
+        "youtube": "https://www.youtube.com/@BEWAVE_official",
+        "tiktok": "https://www.tiktok.com/@bewave_official",
+        "spotify": "https://open.spotify.com/artist/6zbrLeJOnL0pEOgaRwZnaT",
+        "weibo": "https://www.weibo.com/7901670875",
+        "website": "https://bewave.bstage.in/"
+      },
+      "memberHistory": {
+        "currentMembers": [
+          {
+            "name": "Jiun",
+            "profileUrl": "https://kpopping.com/profiles/idol/Jiun"
+          },
+          {
+            "name": "Yunseul",
+            "profileUrl": "https://kpopping.com/profiles/idol/Yunseul2"
+          },
+          {
+            "name": "Lena",
+            "profileUrl": "https://kpopping.com/profiles/idol/Lena3"
+          },
+          {
+            "name": "Zena",
+            "profileUrl": "https://kpopping.com/profiles/idol/Zena3"
+          },
+          {
+            "name": "Ain",
+            "profileUrl": "https://kpopping.com/profiles/idol/Ain4"
+          },
+          {
+            "name": "Gowoon",
+            "profileUrl": "https://kpopping.com/profiles/idol/Gowoon"
+          }
+        ]
+      },
+      "groupInfo": {
+        "debutDate": "2024-04-17",
+        "disbandmentDate": null,
+        "names": {
+          "stage": "BEWAVE",
+          "korean": "비웨이브",
+          "japanese": "ビウェーブ",
+          "chinese": null
+        },
+        "fandomName": "LU"
+      }
+    }
+  ],
+  "boyGroups": [
+    {
+      "id": "175867fb-024e-460f-97d4-0a569b75154e",
+      "type": "boy",
+      "profileUrl": "https://kpopping.com/profiles/group/BSS",
+      "imageUrl": "https://kpopping.com/documents/a4/1/social-widget/BSS-fullPicture(3).webp?v=70476",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": "Pledis Entertainment",
+        "history": [
+          {
+            "name": "Pledis Entertainment",
+            "period": {
+              "start": "2018-03-21"
+            }
+          }
+        ]
+      },
+      "socialMedia": {
+        "spotify": "https://open.spotify.com/artist/1uAT5bTSp6dWbNmixIUP5t"
+      },
+      "memberHistory": {
+        "currentMembers": [
+          {
+            "name": "Hoshi",
+            "profileUrl": "https://kpopping.com/profiles/idol/Hoshi"
+          },
+          {
+            "name": "DK",
+            "profileUrl": "https://kpopping.com/profiles/idol/DK"
+          },
+          {
+            "name": "Seungkwan",
+            "profileUrl": "https://kpopping.com/profiles/idol/Seungkwan"
+          }
+        ]
+      },
+      "groupInfo": {
+        "debutDate": "2018-03-21",
+        "disbandmentDate": null,
+        "names": {
+          "stage": "BSS",
+          "korean": "부석순",
+          "japanese": "副石順",
+          "chinese": null
+        },
+        "fandomName": "TteokTwiSoon / Carat"
+      }
+    }
+  ],
+  "coedGroups": [
+    {
+      "id": "d84d00ac-a0ba-45e8-8a9c-bbbe7ebcfc10",
+      "type": "coed",
+      "profileUrl": "https://kpopping.com/profiles/group/SWAY",
+      "imageUrl": "https://kpopping.com/documents/fd/5/social-widget/SWAY-fullPicture(1).webp?v=bba73",
+      "active": false,
+      "status": "inactive",
+      "company": {
+        "current": "A2Z Entertainment",
+        "history": [
+          {
+            "name": "A2Z Entertainment",
+            "period": {
+              "start": "2020-10-29"
+            }
+          }
+        ]
+      },
+      "socialMedia": {
+        "facebook": "https://www.facebook.com/SWAYofficialPOP/",
+        "twitter": "https://twitter.com/SWAYOfficial3",
+        "instagram": "https://www.instagram.com/swayofficialpop/",
+        "youtube": "https://www.youtube.com/channel/UCfFtFvyg14lKR7rYQIZrHYg/videos",
+        "spotify": "https://open.spotify.com/artist/5zCeThn4MgiZGozk61CfBn"
+      },
+      "memberHistory": {
+        "currentMembers": [
+          {
+            "name": "Jae Yeon",
+            "profileUrl": "https://kpopping.com/profiles/idol/Jae-Yeon"
+          },
+          {
+            "name": "Saya",
+            "profileUrl": "https://kpopping.com/profiles/idol/Saya2"
+          },
+          {
+            "name": "JoonHyuk",
+            "profileUrl": "https://kpopping.com/profiles/idol/JoonHyuk"
+          }
+        ]
+      },
+      "groupInfo": {
+        "debutDate": "2020-10-29",
+        "disbandmentDate": null,
+        "names": {
+          "stage": "SWAY",
+          "korean": "스웨이",
+          "japanese": "スウェイ",
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    }
+  ]
 }

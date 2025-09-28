@@ -1,4 +1,100 @@
 {
-  "femaleIdols": [],
-  "maleIdols": []
+  "femaleIdols": [
+    {
+      "id": "d1885a4e-c1d9-436e-857b-b90999cb2276",
+      "profileUrl": "https://kpopping.com/profiles/idol/Im-Kyungha",
+      "imageUrl": "https://kpopping.com/documents/26/1/social-widget/Im-Kyungha-facePicture.webp?v=cdb46",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": "Astory Entertainment",
+        "history": [
+          {
+            "name": "Astory Entertainment",
+            "period": {
+              "start": "2016-01-01",
+              "end": "2017-06-01"
+            }
+          }
+        ]
+      },
+      "socialMedia": {
+        "instagram": "https://www.instagram.com/kh97arti",
+        "youtube": "https://www.youtube.com/channel/UCt3DPFhRZ_YwwJcQijBmZLQ/featured"
+      },
+      "names": {
+        "stage": "Im Kyungha",
+        "korean": "임경하",
+        "japanese": null,
+        "chinese": null,
+        "full": "Im Kyungha",
+        "native": "임경하"
+      },
+      "description": "Im Kyungha is a South Korean soloist under Red Submarine Entertainment. She was revealed to have left Produce 101 Season 1 on Episode 3, where she was a contestant under Astory Entertainment. Before her appearance on Produce 101, Kyungha appeared on Kpop Star 2. However, she was unable to make it to the finals.",
+      "country": {
+        "name": "South Korea",
+        "code": "kr"
+      },
+      "physicalInfo": {
+        "bloodType": "AB"
+      },
+      "careerInfo": {
+        "activeYears": [
+          {
+            "start": "2016-01-01",
+            "end": "2017-06-01"
+          }
+        ],
+        "debutDate": "2019-11-29"
+      }
+    }
+  ],
+  "maleIdols": [
+    {
+      "id": "d179a38d-4a08-4aea-93f7-e89bfa4111a1",
+      "profileUrl": "https://kpopping.com/profiles/idol/Apro",
+      "imageUrl": "https://kpopping.com/documents/b8/4/social-widget/Apro-facePicture.webp?v=52489",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": "wavy",
+        "history": [
+          {
+            "name": "wavy",
+            "period": {
+              "start": "2022-01-01"
+            }
+          }
+        ]
+      },
+      "socialMedia": {
+        "facebook": "https://www.facebook.com/aproavenue/",
+        "twitter": "https://twitter.com/MDONGWOOK",
+        "instagram": "https://www.instagram.com/aproavenue/",
+        "spotify": "https://open.spotify.com/artist/779Q9oJXqbVHN4DbtTYa6O"
+      },
+      "names": {
+        "stage": "Apro",
+        "korean": "아프로",
+        "japanese": null,
+        "chinese": null,
+        "full": null,
+        "native": "민동욱"
+      },
+      "description": "Apro is a South Korean soloist, singer-songwriter, DJ and designer under WAVY. He made his official debut as a member of Basterd in 2014. He later debuted as a solo artist in 2016 with the single \"I.D.L.Y\".",
+      "physicalInfo": {
+        "birthDate": "1991-06-18"
+      },
+      "personalInfo": {
+        "mbti": "ENFJ"
+      },
+      "careerInfo": {
+        "activeYears": [
+          {
+            "start": "2022-01-01"
+          }
+        ]
+      }
+    }
+  ]
 }

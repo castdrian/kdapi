@@ -1,4 +1,5 @@
 import { fetch } from "undici";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import * as cheerio from "cheerio";
 import { v4 as uuidv4 } from "uuid";
 import * as fs from "node:fs";
@@ -223,15 +224,17 @@ async function fetchWithRetry(url: string): Promise<string> {
 				signal: controller.signal,
 			};
 
-			// Add proxy configuration if available
-			if (currentProxy) {
-				// For HTTP proxies, use the proxy URL directly
-				if (currentProxy.protocol === "http") {
-					// Note: undici doesn't support proxy configuration the same way as node-fetch
-					// We'll use a simpler approach by routing through the proxy URL
-					fetchOptions.dispatcher = undefined; // Let undici use default dispatcher for now
+			// Add proxy configuration if available (for HTTP proxies)
+			if (currentProxy && currentProxy.protocol === "http") {
+				const proxyUrl = `http://${currentProxy.host}:${currentProxy.port}`;
+				try {
+					const agent = new HttpsProxyAgent(proxyUrl);
+					// @ts-ignore - undici typing issue with dispatcher
+					fetchOptions.dispatcher = agent;
+				} catch (proxyError) {
+					logger.warn(`Failed to set up proxy ${proxyUrl}: ${proxyError}`);
+					// Continue without proxy
 				}
-				// SOCKS proxies would need a different approach, but for now we'll focus on HTTP
 			}
 
 			const response = await fetch(url, fetchOptions);

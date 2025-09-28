@@ -20,12 +20,19 @@ export class ProxyManager {
 	async initialize(): Promise<void> {
 		console.log("[PROXY] Initializing proxy manager...");
 		try {
-			// Try to fetch proxies from all lists
-			const proxyLists = await Promise.allSettled([
+			// Try to fetch proxies from all lists with timeout
+			const proxyListPromises = [
 				this.fetchProxyList("http"),
 				this.fetchProxyList("socks4"),
 				this.fetchProxyList("socks5"),
-			]);
+			].map(p => Promise.race([
+				p,
+				new Promise<ProxyConfig[]>((_, reject) => 
+					setTimeout(() => reject(new Error("Timeout")), 30000)
+				)
+			]));
+
+			const proxyLists = await Promise.allSettled(proxyListPromises);
 
 			for (const result of proxyLists) {
 				if (result.status === "fulfilled") {
@@ -42,7 +49,7 @@ export class ProxyManager {
 			this.shuffleProxies();
 			console.log(`[PROXY] Loaded ${this.proxies.length} proxies`);
 		} catch (error) {
-			console.warn("[PROXY] Failed to initialize proxies:", error);
+			console.warn("[PROXY] Failed to initialize proxies, continuing with direct connection:", error);
 		}
 	}
 
