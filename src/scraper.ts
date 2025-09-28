@@ -183,130 +183,183 @@ const rateLimiter = {
 };
 
 async function fetchWithRetry(url: string): Promise<string> {
-	const maxAttempts = CONFIG.retryAttempts;
-	let attempt = 0;
+	const maxAttemptsPerProxy = 3; // Attempts per individual proxy
 	let currentProxy: ProxyConfig | null = null;
-
-	while (attempt < maxAttempts) {
-		try {
-			if (attempt > 0) {
-				logger.warn(`Retrying ${url} (attempt ${attempt + 1}/${maxAttempts})`);
-				const backoff = Math.min(CONFIG.retryDelay * 1.5 ** attempt, 30000);
-				await delay(backoff);
-			}
-
-			// Get proxy if available
-			currentProxy = proxyManager.getCurrentProxy();
-			if (currentProxy) {
-				logger.info(`Fetching ${url} via proxy ${currentProxy.host}:${currentProxy.port}`);
-			} else {
-				logger.info(`Fetching ${url} (direct connection)`);
-			}
-
-			await rateLimiter.getToken();
-
-			const controller = new AbortController();
-			const timeoutId = setTimeout(
-				() => controller.abort(),
-				CONFIG.requestTimeout,
-			);
-
-			// Prepare fetch options
-			const fetchOptions: Parameters<typeof fetch>[1] = {
-				headers: {
-					...CONFIG.headers,
-					"User-Agent": CONFIG.userAgent,
-					Host: new URL(url).hostname,
-					Referer: "https://www.google.com/",
-					Connection: "keep-alive",
-					DNT: "1",
-				},
-				signal: controller.signal,
-			};
-
-			// Add proxy configuration if available (for HTTP proxies)
-			if (currentProxy && currentProxy.protocol === "http") {
-				const proxyUrl = `http://${currentProxy.host}:${currentProxy.port}`;
-				try {
-					const agent = new HttpsProxyAgent(proxyUrl);
-					// @ts-ignore - undici typing issue with dispatcher
-					fetchOptions.dispatcher = agent;
-				} catch (proxyError) {
-					logger.warn(`Failed to set up proxy ${proxyUrl}: ${proxyError}`);
-					// Continue without proxy
+	let triedDirectConnection = false;
+	
+	// First, try all available proxies
+	while (proxyManager.hasWorkingProxies()) {
+		currentProxy = proxyManager.getCurrentProxy();
+		if (!currentProxy) break;
+		
+		logger.info(`Fetching ${url} via proxy ${currentProxy.host}:${currentProxy.port}`);
+		
+		// Try this proxy with limited attempts
+		let proxySuccess = false;
+		for (let attempt = 0; attempt < maxAttemptsPerProxy; attempt++) {
+			try {
+				if (attempt > 0) {
+					logger.warn(`Retrying ${url} with proxy ${currentProxy.host}:${currentProxy.port} (attempt ${attempt + 1}/${maxAttemptsPerProxy})`);
+					const backoff = Math.min(CONFIG.retryDelay * 1.5 ** attempt, 10000);
+					await delay(backoff);
 				}
-			}
 
-			const response = await fetch(url, fetchOptions);
+				await rateLimiter.getToken();
 
-			clearTimeout(timeoutId);
+				const controller = new AbortController();
+				const timeoutId = setTimeout(
+					() => controller.abort(),
+					CONFIG.requestTimeout,
+				);
 
-			if (response.status === 429) {
-				attempt++;
-				const retryAfter = response.headers.get("Retry-After");
-				const delay = retryAfter
-					? Number.parseInt(retryAfter) * 1000
-					: CONFIG.retryDelay * 1.5 ** attempt;
-				logger.warn(`Rate limited, waiting ${delay}ms`);
-				await new Promise((resolve) => setTimeout(resolve, delay));
-				continue;
-			}
+				// Prepare fetch options
+				const fetchOptions: Parameters<typeof fetch>[1] = {
+					headers: {
+						...CONFIG.headers,
+						"User-Agent": CONFIG.userAgent,
+						Host: new URL(url).hostname,
+						Referer: "https://www.google.com/",
+						Connection: "keep-alive",
+						DNT: "1",
+					},
+					signal: controller.signal,
+				};
 
-			if (response.status === 403) {
-				// Handle 403 Forbidden specifically
-				if (currentProxy) {
-					logger.warn(`Proxy ${currentProxy.host}:${currentProxy.port} blocked (403), trying next proxy`);
-					proxyManager.markProxyAsFailed(currentProxy);
-					
-					// If we have more proxies, try with next one without incrementing attempt
-					if (proxyManager.hasWorkingProxies()) {
-						continue; // Don't increment attempt, just try next proxy
-					} else {
-						logger.warn("All proxies failed, will try direct connection");
-						currentProxy = null;
-						continue;
+				// Add proxy configuration if available (for HTTP proxies)
+				if (currentProxy.protocol === "http") {
+					const proxyUrl = `http://${currentProxy.host}:${currentProxy.port}`;
+					try {
+						const agent = new HttpsProxyAgent(proxyUrl);
+						// @ts-ignore - undici typing issue with dispatcher
+						fetchOptions.dispatcher = agent;
+					} catch (proxyError) {
+						logger.warn(`Failed to set up proxy ${proxyUrl}: ${proxyError}`);
+						throw new Error("Proxy setup failed");
 					}
-				} else {
-					// Direct connection also getting 403, this might be an IP ban
-					throw new Error(`HTTP ${response.status}: ${response.statusText} - IP may be blocked`);
 				}
+
+				const response = await fetch(url, fetchOptions);
+				clearTimeout(timeoutId);
+
+				if (response.status === 429) {
+					const retryAfter = response.headers.get("Retry-After");
+					const delay = retryAfter
+						? Number.parseInt(retryAfter) * 1000
+						: CONFIG.retryDelay * 1.5 ** attempt;
+					logger.warn(`Rate limited, waiting ${delay}ms`);
+					await new Promise((resolve) => setTimeout(resolve, delay));
+					continue; // Try again with same proxy after rate limit wait
+				}
+
+				if (response.status === 403) {
+					logger.warn(`Proxy ${currentProxy.host}:${currentProxy.port} got 403, marking as failed`);
+					throw new Error("HTTP 403: Forbidden - proxy blocked");
+				}
+
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+				}
+
+				const text = await response.text();
+				if (text.length < 500 || text.includes("Too Many Requests")) {
+					throw new Error("Invalid response received");
+				}
+
+				logger.success(`Successfully fetched ${url} via proxy ${currentProxy.host}:${currentProxy.port}`);
+				failedRequests.delete(url);
+				return text;
+				
+			} catch (error) {
+				logger.error(
+					`Failed to fetch ${url} via proxy ${currentProxy.host}:${currentProxy.port}: ${error instanceof Error ? error.message : String(error)}`,
+				);
+				
+				// If it's a proxy-specific error (403, connection error, etc.), break out of this proxy's attempts
+				if ((error as Error).message.includes("403") || 
+					(error as Error).message.includes("Unable to connect") ||
+					(error as Error).message.includes("Proxy setup failed")) {
+					break; // Try next proxy
+				}
+				
+				// For other errors, continue attempts with this proxy
 			}
+		}
+		
+		// Mark this proxy as failed and try next one
+		logger.warn(`Proxy ${currentProxy.host}:${currentProxy.port} failed after ${maxAttemptsPerProxy} attempts, trying next proxy`);
+		proxyManager.markProxyAsFailed(currentProxy);
+	}
+	
+	// If all proxies failed, try direct connection as last resort  
+	if (!triedDirectConnection) {
+		triedDirectConnection = true;
+		logger.warn("All proxies failed, trying direct connection as last resort");
+		
+		for (let attempt = 0; attempt < maxAttemptsPerProxy; attempt++) {
+			try {
+				if (attempt > 0) {
+					logger.warn(`Retrying ${url} with direct connection (attempt ${attempt + 1}/${maxAttemptsPerProxy})`);
+					const backoff = Math.min(CONFIG.retryDelay * 1.5 ** attempt, 10000);
+					await delay(backoff);
+				}
 
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-			}
+				await rateLimiter.getToken();
+				logger.info(`Fetching ${url} (direct connection)`);
 
-			const text = await response.text();
-			if (text.length < 500 || text.includes("Too Many Requests")) {
-				throw new Error("Invalid response received");
-			}
+				const controller = new AbortController();
+				const timeoutId = setTimeout(
+					() => controller.abort(),
+					CONFIG.requestTimeout,
+				);
 
-			logger.success(`Successfully fetched ${url}`);
-			failedRequests.delete(url);
-			return text;
-		} catch (error) {
-			attempt++;
-			logger.error(
-				`Failed to fetch ${url}: ${error instanceof Error ? error.message : String(error)}`,
-			);
+				const response = await fetch(url, {
+					headers: {
+						...CONFIG.headers,
+						"User-Agent": CONFIG.userAgent,
+						Host: new URL(url).hostname,
+						Referer: "https://www.google.com/",
+						Connection: "keep-alive",
+						DNT: "1",
+					},
+					signal: controller.signal,
+				});
 
-			// If proxy failed, mark it as failed and try next one
-			if (currentProxy && (error as Error).message.includes("HTTP 403")) {
-				proxyManager.markProxyAsFailed(currentProxy);
-			}
+				clearTimeout(timeoutId);
 
-			if (attempt >= maxAttempts) {
-				logger.error(`Max retry attempts (${maxAttempts}) reached for ${url}`);
-				// Don't throw error here - return null or empty string to allow graceful continuation
-				logger.warn(`Skipping ${url} due to persistent failures`);
-				return ""; // Return empty string instead of throwing
+				if (response.status === 429) {
+					const retryAfter = response.headers.get("Retry-After");
+					const delay = retryAfter
+						? Number.parseInt(retryAfter) * 1000
+						: CONFIG.retryDelay * 1.5 ** attempt;
+					logger.warn(`Rate limited, waiting ${delay}ms`);
+					await new Promise((resolve) => setTimeout(resolve, delay));
+					continue;
+				}
+
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+				}
+
+				const text = await response.text();
+				if (text.length < 500 || text.includes("Too Many Requests")) {
+					throw new Error("Invalid response received");
+				}
+
+				logger.success(`Successfully fetched ${url} via direct connection`);
+				failedRequests.delete(url);
+				return text;
+				
+			} catch (error) {
+				logger.error(
+					`Failed to fetch ${url} via direct connection: ${error instanceof Error ? error.message : String(error)}`,
+				);
 			}
 		}
 	}
-
-	// This should not be reached, but just in case
-	logger.warn(`Max retry attempts reached for ${url}, returning empty response`);
-	return "";
+	
+	// Only after exhausting ALL proxies AND direct connection, throw error to quit
+	logger.error(`All proxies and direct connection failed for ${url}. No more options available.`);
+	throw new Error("All proxies exhausted - unable to fetch any content. Terminating scraper.");
 }
 
 async function parseProfileWithCache(
