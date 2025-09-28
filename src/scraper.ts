@@ -1,9 +1,11 @@
 import { fetch } from "undici";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import * as cheerio from "cheerio";
 import { v4 as uuidv4 } from "uuid";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { CacheManager } from "@src/cache";
+import { ProxyManager, type ProxyConfig } from "@src/proxy";
 import {
 	BloodType,
 	type DataSet,
@@ -47,12 +49,12 @@ const ENDPOINTS = {
 const CONFIG = {
 	debug: true,
 	retryAttempts: 5, // Increased from 3
-	retryDelay: 2000, // Increased from 1000
+	retryDelay: 1500, // Reduced for faster processing
 	requestTimeout: 30000, // Increased from 20000
 	rateLimitDelay: 0, // No delay needed when using cache
 	maxRequestsPerMinute: 1000, // Higher limit for cached content
-	maxConcurrent: 5,
-	concurrentRequests: 5,
+	maxConcurrent: 10, // Increased for production
+	concurrentRequests: 10, // Increased for production
 	debugSampleSize: 5,
 	batchLogInterval: 10, // Log batch progress every N items
 	saveInterval: 100, // Save progress every N items
@@ -117,6 +119,7 @@ const failedRequests = new Map<
 >();
 
 const cache = new CacheManager();
+const proxyManager = new ProxyManager();
 
 let startTime = Date.now();
 
@@ -180,84 +183,190 @@ const rateLimiter = {
 };
 
 async function fetchWithRetry(url: string): Promise<string> {
-	const maxAttempts = CONFIG.retryAttempts;
-	let attempt = 0;
+	const maxAttemptsPerProxy = 3; // Attempts per individual proxy
+	let currentProxy: ProxyConfig | null = null;
+	let triedDirectConnection = false;
+	
+	// First, try all available proxies
+	while (proxyManager.hasWorkingProxies()) {
+		currentProxy = proxyManager.getCurrentProxy();
+		if (!currentProxy) break;
+		
+		logger.info(`Fetching ${url} via proxy ${currentProxy.host}:${currentProxy.port}`);
+		
+		// Try this proxy with limited attempts
+		let proxySuccess = false;
+		for (let attempt = 0; attempt < maxAttemptsPerProxy; attempt++) {
+			try {
+				if (attempt > 0) {
+					logger.warn(`Retrying ${url} with proxy ${currentProxy.host}:${currentProxy.port} (attempt ${attempt + 1}/${maxAttemptsPerProxy})`);
+					const backoff = Math.min(CONFIG.retryDelay * 1.5 ** attempt, 10000);
+					await delay(backoff);
+				}
 
-	while (attempt < maxAttempts) {
-		try {
-			if (attempt > 0) {
-				logger.warn(`Retrying ${url} (attempt ${attempt + 1}/${maxAttempts})`);
-				const backoff = Math.min(CONFIG.retryDelay * 1.5 ** attempt, 30000);
-				await delay(backoff);
+				await rateLimiter.getToken();
+
+				const controller = new AbortController();
+				const timeoutId = setTimeout(
+					() => controller.abort(),
+					CONFIG.requestTimeout,
+				);
+
+				// Prepare fetch options
+				const fetchOptions: Parameters<typeof fetch>[1] = {
+					headers: {
+						...CONFIG.headers,
+						"User-Agent": CONFIG.userAgent,
+						Host: new URL(url).hostname,
+						Referer: "https://www.google.com/",
+						Connection: "keep-alive",
+						DNT: "1",
+					},
+					signal: controller.signal,
+				};
+
+				// Add proxy configuration if available (for HTTP proxies)
+				if (currentProxy.protocol === "http") {
+					const proxyUrl = `http://${currentProxy.host}:${currentProxy.port}`;
+					try {
+						const agent = new HttpsProxyAgent(proxyUrl);
+						// @ts-ignore - undici typing issue with dispatcher
+						fetchOptions.dispatcher = agent;
+					} catch (proxyError) {
+						logger.warn(`Failed to set up proxy ${proxyUrl}: ${proxyError}`);
+						throw new Error("Proxy setup failed");
+					}
+				}
+
+				const response = await fetch(url, fetchOptions);
+				clearTimeout(timeoutId);
+
+				if (response.status === 429) {
+					const retryAfter = response.headers.get("Retry-After");
+					const delay = retryAfter
+						? Number.parseInt(retryAfter) * 1000
+						: CONFIG.retryDelay * 1.5 ** attempt;
+					logger.warn(`Rate limited, waiting ${delay}ms`);
+					await new Promise((resolve) => setTimeout(resolve, delay));
+					continue; // Try again with same proxy after rate limit wait
+				}
+
+				if (response.status === 403) {
+					logger.warn(`Proxy ${currentProxy.host}:${currentProxy.port} got 403, marking as failed`);
+					throw new Error("HTTP 403: Forbidden - proxy blocked");
+				}
+
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+				}
+
+				const text = await response.text();
+				if (text.length < 500 || text.includes("Too Many Requests")) {
+					throw new Error("Invalid response received");
+				}
+
+				logger.success(`Successfully fetched ${url} via proxy ${currentProxy.host}:${currentProxy.port}`);
+				failedRequests.delete(url);
+				return text;
+				
+			} catch (error) {
+				logger.error(
+					`Failed to fetch ${url} via proxy ${currentProxy.host}:${currentProxy.port}: ${error instanceof Error ? error.message : String(error)}`,
+				);
+				
+				// If it's a proxy-specific error (403, connection error, etc.), break out of this proxy's attempts
+				if ((error as Error).message.includes("403") || 
+					(error as Error).message.includes("Unable to connect") ||
+					(error as Error).message.includes("Proxy setup failed")) {
+					break; // Try next proxy
+				}
+				
+				// For other errors, continue attempts with this proxy
 			}
+		}
+		
+		// Mark this proxy as failed and try next one
+		logger.warn(`Proxy ${currentProxy.host}:${currentProxy.port} failed after ${maxAttemptsPerProxy} attempts, trying next proxy`);
+		proxyManager.markProxyAsFailed(currentProxy);
+	}
+	
+	// If all proxies failed, try direct connection as last resort  
+	if (!triedDirectConnection) {
+		triedDirectConnection = true;
+		logger.warn("All proxies failed, trying direct connection as last resort");
+		
+		for (let attempt = 0; attempt < maxAttemptsPerProxy; attempt++) {
+			try {
+				if (attempt > 0) {
+					logger.warn(`Retrying ${url} with direct connection (attempt ${attempt + 1}/${maxAttemptsPerProxy})`);
+					const backoff = Math.min(CONFIG.retryDelay * 1.5 ** attempt, 10000);
+					await delay(backoff);
+				}
 
-			await rateLimiter.getToken();
-			logger.info(`Fetching ${url}`);
+				await rateLimiter.getToken();
+				logger.info(`Fetching ${url} (direct connection)`);
 
-			const controller = new AbortController();
-			const timeoutId = setTimeout(
-				() => controller.abort(),
-				CONFIG.requestTimeout,
-			);
+				const controller = new AbortController();
+				const timeoutId = setTimeout(
+					() => controller.abort(),
+					CONFIG.requestTimeout,
+				);
 
-			const response = await fetch(url, {
-				headers: {
-					...CONFIG.headers,
-					"User-Agent": CONFIG.userAgent,
-					Host: new URL(url).hostname,
-					Referer: "https://www.google.com/",
-					Connection: "keep-alive",
-					DNT: "1",
-				},
-				signal: controller.signal,
-			});
+				const response = await fetch(url, {
+					headers: {
+						...CONFIG.headers,
+						"User-Agent": CONFIG.userAgent,
+						Host: new URL(url).hostname,
+						Referer: "https://www.google.com/",
+						Connection: "keep-alive",
+						DNT: "1",
+					},
+					signal: controller.signal,
+				});
 
-			clearTimeout(timeoutId);
+				clearTimeout(timeoutId);
 
-			if (response.status === 429) {
-				attempt++;
-				const retryAfter = response.headers.get("Retry-After");
-				const delay = retryAfter
-					? Number.parseInt(retryAfter) * 1000
-					: CONFIG.retryDelay * 1.5 ** attempt;
-				logger.warn(`Rate limited, waiting ${delay}ms`);
-				await new Promise((resolve) => setTimeout(resolve, delay));
-				continue;
-			}
+				if (response.status === 429) {
+					const retryAfter = response.headers.get("Retry-After");
+					const delay = retryAfter
+						? Number.parseInt(retryAfter) * 1000
+						: CONFIG.retryDelay * 1.5 ** attempt;
+					logger.warn(`Rate limited, waiting ${delay}ms`);
+					await new Promise((resolve) => setTimeout(resolve, delay));
+					continue;
+				}
 
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-			}
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+				}
 
-			const text = await response.text();
-			if (text.length < 500 || text.includes("Too Many Requests")) {
-				throw new Error("Invalid response received");
-			}
+				const text = await response.text();
+				if (text.length < 500 || text.includes("Too Many Requests")) {
+					throw new Error("Invalid response received");
+				}
 
-			logger.success(`Successfully fetched ${url}`);
-			failedRequests.delete(url);
-			return text;
-		} catch (error) {
-			attempt++;
-			logger.error(
-				`Failed to fetch ${url}: ${error instanceof Error ? error.message : String(error)}`,
-			);
-
-			if (attempt >= maxAttempts) {
-				logger.error(`Max retry attempts (${maxAttempts}) reached for ${url}`);
-				throw error;
+				logger.success(`Successfully fetched ${url} via direct connection`);
+				failedRequests.delete(url);
+				return text;
+				
+			} catch (error) {
+				logger.error(
+					`Failed to fetch ${url} via direct connection: ${error instanceof Error ? error.message : String(error)}`,
+				);
 			}
 		}
 	}
-
-	throw new Error("Max retry attempts reached");
+	
+	// Only after exhausting ALL proxies AND direct connection, throw error to quit
+	logger.error(`All proxies and direct connection failed for ${url}. No more options available.`);
+	throw new Error("All proxies exhausted - unable to fetch any content. Terminating scraper.");
 }
 
 async function parseProfileWithCache(
 	url: string,
 	type: "idol" | "group",
 	forceRefresh = false,
-): Promise<string> {
+): Promise<string | null> {
 	if (!forceRefresh) {
 		const cached = await cache.get(type, url);
 		if (cached) {
@@ -268,6 +377,13 @@ async function parseProfileWithCache(
 	// Only apply delays when actually fetching
 	logger.info(`Cache miss for ${url}, fetching...`);
 	const html = await fetchWithRetry(url);
+	
+	// Handle empty responses gracefully
+	if (!html || html.length === 0) {
+		logger.warn(`Failed to fetch content for ${url}, skipping...`);
+		return null;
+	}
+	
 	await cache.set(type, url, html);
 	return html;
 }
@@ -1277,6 +1393,11 @@ async function processIncrementalScraping(options: {
 		forceRefresh, // Pass forceRefresh here
 	);
 
+	if (!mainPageHtml) {
+		logger.error(`Failed to fetch main page for ${gender} ${type}s, skipping category`);
+		return [];
+	}
+
 	const $ = cheerio.load(mainPageHtml);
 	const allUrls = extractProfileLinks($);
 
@@ -1304,6 +1425,9 @@ async function runProductionMode(options: {
 	useCache: boolean;
 	forceRefresh: boolean;
 }): Promise<void> {
+	// Initialize proxy manager
+	await proxyManager.initialize();
+	
 	let dataset: DataSet = {
 		femaleIdols: [],
 		maleIdols: [],
@@ -1340,49 +1464,62 @@ async function runProductionMode(options: {
 	];
 
 	for (const category of categories) {
-		logger.info(`Processing ${category.gender} ${category.type}s...`);
+		try {
+			logger.info(`Processing ${category.gender} ${category.type}s...`);
 
-		const newProfiles = await processIncrementalScraping({
-			existingData: dataset,
-			...category,
-			forceRefresh: options.forceRefresh, // Pass forceRefresh to processIncrementalScraping
-		});
+			const newProfiles = await processIncrementalScraping({
+				existingData: dataset,
+				...category,
+				forceRefresh: options.forceRefresh, // Pass forceRefresh to processIncrementalScraping
+			});
 
-		// Merge new profiles with existing data
-		if (category.type === "idol") {
-			if (category.gender === "female") {
-				dataset.femaleIdols = mergeProfiles(
-					dataset.femaleIdols,
-					newProfiles as Idol[],
-				);
+			// Merge new profiles with existing data
+			if (category.type === "idol") {
+				if (category.gender === "female") {
+					dataset.femaleIdols = mergeProfiles(
+						dataset.femaleIdols,
+						newProfiles as Idol[],
+					);
+				} else {
+					dataset.maleIdols = mergeProfiles(
+						dataset.maleIdols,
+						newProfiles as Idol[],
+					);
+				}
 			} else {
-				dataset.maleIdols = mergeProfiles(
-					dataset.maleIdols,
-					newProfiles as Idol[],
-				);
+				if (category.gender === "female") {
+					dataset.girlGroups = mergeProfiles(
+						dataset.girlGroups,
+						newProfiles as Group[],
+					);
+				} else if (category.gender === "male") {
+					dataset.boyGroups = mergeProfiles(
+						dataset.boyGroups,
+						newProfiles as Group[],
+					);
+				} else {
+					dataset.coedGroups = mergeProfiles(
+						dataset.coedGroups,
+						newProfiles as Group[],
+					);
+				}
 			}
-		} else {
-			if (category.gender === "female") {
-				dataset.girlGroups = mergeProfiles(
-					dataset.girlGroups,
-					newProfiles as Group[],
-				);
-			} else if (category.gender === "male") {
-				dataset.boyGroups = mergeProfiles(
-					dataset.boyGroups,
-					newProfiles as Group[],
-				);
-			} else {
-				dataset.coedGroups = mergeProfiles(
-					dataset.coedGroups,
-					newProfiles as Group[],
-				);
+
+			// Save progress after each category
+			await saveDataset(dataset);
+			logger.success(`Completed ${category.gender} ${category.type}s`);
+
+		} catch (error) {
+			logger.error(`Failed to process ${category.gender} ${category.type}s: ${error instanceof Error ? error.message : String(error)}`);
+			logger.warn(`Continuing with next category...`);
+			
+			// Still save what we have so far
+			try {
+				await saveDataset(dataset);
+			} catch (saveError) {
+				logger.error(`Failed to save dataset after error: ${saveError}`);
 			}
 		}
-
-		// Save progress after each category
-		await saveDataset(dataset);
-		logger.success(`Completed ${category.gender} ${category.type}s`);
 
 		await delay(options.delayBetweenBatches);
 	}
@@ -1531,6 +1668,12 @@ async function scrapeProfiles(options: {
 				type,
 				forceRefresh, // Pass forceRefresh here
 			);
+			
+			if (!mainPageHtml) {
+				logger.error(`Failed to fetch main page for ${gender} ${type}s, skipping category`);
+				return [];
+			}
+			
 			const $ = cheerio.load(mainPageHtml);
 			profileUrls = extractProfileLinks($);
 		}
@@ -1606,6 +1749,14 @@ async function scrapeProfiles(options: {
 					type,
 					forceRefresh || !useCache, // Force refresh if forceRefresh is true or useCache is false
 				);
+				
+				if (!html) {
+					logger.warn(`Skipping ${url} due to fetch failure`);
+					allProfiles.failures++;
+					updateGlobalProgress();
+					return null;
+				}
+				
 				const $ = cheerio.load(html);
 				const result =
 					type === "idol"
@@ -1759,6 +1910,9 @@ async function runDebugMode(options: {
 	delayBetweenBatches: number;
 	useCache: boolean;
 }): Promise<void> {
+	// Initialize proxy manager
+	await proxyManager.initialize();
+	
 	const dataset: DataSet = {
 		femaleIdols: [],
 		maleIdols: [],
