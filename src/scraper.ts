@@ -182,62 +182,41 @@ const rateLimiter = {
 	},
 };
 
+
 async function fetchWithRetry(url: string): Promise<string> {
-	const maxAttemptsPerProxy = 3; // Attempts per individual proxy
 	let currentProxy: ProxyConfig | null = null;
 	let triedDirectConnection = false;
 
 	// First, try all available proxies
-	while (true) {
-		if (!proxyManager.hasWorkingProxies()) {
-			const cooldownWait = proxyManager.getNextCooldownDuration();
-			if (cooldownWait !== null) {
-				logger.warn(
-					`All proxies are cooling down. Waiting ${Math.ceil(cooldownWait / 1000)}s before retrying`,
-				);
-				await delay(cooldownWait);
-				continue;
-			}
-			break;
-		}
-
+	while (proxyManager.hasWorkingProxies()) {
 		currentProxy = proxyManager.getCurrentProxy();
 		if (!currentProxy) break;
 
 		logger.info(`Fetching ${url} via proxy ${currentProxy.host}:${currentProxy.port}`);
 
-		// Try this proxy with limited attempts
-		let proxyRateLimited = false;
-		for (let attempt = 0; attempt < maxAttemptsPerProxy; attempt++) {
-			try {
-				if (attempt > 0) {
-					logger.warn(`Retrying ${url} with proxy ${currentProxy.host}:${currentProxy.port} (attempt ${attempt + 1}/${maxAttemptsPerProxy})`);
-					const backoff = Math.min(CONFIG.retryDelay * 1.5 ** attempt, 10000);
-					await delay(backoff);
-				}
+		try {
+			await rateLimiter.getToken();
 
-				await rateLimiter.getToken();
+			const controller = new AbortController();
+			const timeoutId = setTimeout(
+				() => controller.abort(),
+				CONFIG.requestTimeout,
+			);
 
-				const controller = new AbortController();
-				const timeoutId = setTimeout(
-					() => controller.abort(),
-					CONFIG.requestTimeout,
-				);
+			// Prepare fetch options
+			const fetchOptions: Parameters<typeof fetch>[1] = {
+				headers: {
+					...CONFIG.headers,
+					"User-Agent": CONFIG.userAgent,
+					Host: new URL(url).hostname,
+					Referer: "https://www.google.com/",
+					Connection: "keep-alive",
+					DNT: "1",
+				},
+				signal: controller.signal,
+			};
 
-				// Prepare fetch options
-				const fetchOptions: Parameters<typeof fetch>[1] = {
-					headers: {
-						...CONFIG.headers,
-						"User-Agent": CONFIG.userAgent,
-						Host: new URL(url).hostname,
-						Referer: "https://www.google.com/",
-						Connection: "keep-alive",
-						DNT: "1",
-					},
-					signal: controller.signal,
-				};
-
-				// Add proxy configuration if available (for HTTP proxies)
+			// Add proxy configuration if available (for HTTP proxies)
 				if (currentProxy.protocol === "http") {
 					const proxyUrl = `http://${currentProxy.host}:${currentProxy.port}`;
 					try {
@@ -250,80 +229,82 @@ async function fetchWithRetry(url: string): Promise<string> {
 					}
 				}
 
-				const response = await fetch(url, fetchOptions);
-				clearTimeout(timeoutId);
+			const response = await fetch(url, fetchOptions);
+			clearTimeout(timeoutId);
 
-				if (response.status === 429) {
-					const retryAfter = response.headers.get("Retry-After");
-					const retryAfterSeconds = retryAfter
-						? Number.parseInt(retryAfter, 10)
-						: Number.NaN;
-					const cooldownMs = Number.isFinite(retryAfterSeconds)
-						? retryAfterSeconds * 1000
-						: CONFIG.retryDelay * 1.5 ** attempt;
-					const sanitizedCooldown = Number.isFinite(cooldownMs)
-						? Math.max(cooldownMs, 1000)
-						: 5000;
-					logger.warn(
-						`Proxy ${currentProxy.host}:${currentProxy.port} hit rate limit. Rotating proxy (cooldown ${Math.ceil(sanitizedCooldown / 1000)}s)`,
-					);
-					proxyManager.markProxyAsRateLimited(currentProxy, sanitizedCooldown);
-					proxyRateLimited = true;
-					break;
-				}
-
-				if (response.status === 403) {
-					logger.warn(`Proxy ${currentProxy.host}:${currentProxy.port} got 403, marking as failed`);
-					throw new Error("HTTP 403: Forbidden - proxy blocked");
-				}
-
-				if (!response.ok) {
-					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-				}
-
-				const text = await response.text();
-				if (text.length < 500 || text.includes("Too Many Requests")) {
-					throw new Error("Invalid response received");
-				}
-
-				logger.success(`Successfully fetched ${url} via proxy ${currentProxy.host}:${currentProxy.port}`);
-				failedRequests.delete(url);
-				return text;
-				
-			} catch (error) {
-				logger.error(
-					`Failed to fetch ${url} via proxy ${currentProxy.host}:${currentProxy.port}: ${error instanceof Error ? error.message : String(error)}`,
+			if (response.status === 429) {
+				const retryAfter = response.headers.get("Retry-After");
+				const retryAfterSeconds = retryAfter
+					? Number.parseInt(retryAfter, 10)
+					: Number.NaN;
+				const cooldownMs = Number.isFinite(retryAfterSeconds)
+					? retryAfterSeconds * 1000
+					: CONFIG.retryDelay;
+				const sanitizedCooldown = Number.isFinite(cooldownMs)
+					? Math.max(cooldownMs, 1000)
+					: 5000;
+				logger.warn(
+					`Proxy ${currentProxy.host}:${currentProxy.port} hit rate limit. Rotating proxy (cooldown ${Math.ceil(sanitizedCooldown / 1000)}s)`,
 				);
-				
-				// If it's a proxy-specific error (403, connection error, etc.), break out of this proxy's attempts
-				if ((error as Error).message.includes("403") || 
-					(error as Error).message.includes("Unable to connect") ||
-					(error as Error).message.includes("Proxy setup failed")) {
-					break; // Try next proxy
-				}
-				
-				// For other errors, continue attempts with this proxy
+				proxyManager.markProxyAsRateLimited(currentProxy, sanitizedCooldown);
+				continue;
+			}
+
+			if (response.status === 403) {
+				logger.warn(`Proxy ${currentProxy.host}:${currentProxy.port} got 403, marking as failed`);
+				proxyManager.markProxyAsFailed(currentProxy);
+				continue;
+			}
+
+			if (!response.ok) {
+				logger.warn(
+					`Proxy ${currentProxy.host}:${currentProxy.port} returned ${response.status}. Rotating to next proxy`,
+				);
+				proxyManager.markProxyAsTemporarilyFailed(currentProxy, CONFIG.retryDelay);
+				continue;
+			}
+
+			const text = await response.text();
+			if (text.length < 500 || text.includes("Too Many Requests")) {
+				logger.warn(
+					`Proxy ${currentProxy.host}:${currentProxy.port} returned invalid payload. Rotating to next proxy`,
+				);
+				proxyManager.markProxyAsTemporarilyFailed(currentProxy, CONFIG.retryDelay);
+				continue;
+			}
+
+			logger.success(`Successfully fetched ${url} via proxy ${currentProxy.host}:${currentProxy.port}`);
+			failedRequests.delete(url);
+			return text;
+		} catch (error) {
+			logger.error(
+				`Failed to fetch ${url} via proxy ${currentProxy.host}:${currentProxy.port}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+
+			const message = error instanceof Error ? error.message : String(error);
+			if (
+				message.includes("403") ||
+				message.includes("Proxy setup failed") ||
+				message.includes("certificate") ||
+				message.includes("ENOTFOUND")
+			) {
+				proxyManager.markProxyAsFailed(currentProxy);
+			} else {
+				proxyManager.markProxyAsTemporarilyFailed(currentProxy, CONFIG.retryDelay);
 			}
 		}
-
-		// Mark this proxy as failed and try next one
-		if (proxyRateLimited) {
-			continue;
-		}
-
-		logger.warn(`Proxy ${currentProxy.host}:${currentProxy.port} failed after ${maxAttemptsPerProxy} attempts, trying next proxy`);
-		proxyManager.markProxyAsFailed(currentProxy);
 	}
 	
 	// If all proxies failed, try direct connection as last resort  
 	if (!triedDirectConnection) {
 		triedDirectConnection = true;
 		logger.warn("All proxies failed, trying direct connection as last resort");
+		const directAttempts = 3;
 		
-		for (let attempt = 0; attempt < maxAttemptsPerProxy; attempt++) {
+		for (let attempt = 0; attempt < directAttempts; attempt++) {
 			try {
 				if (attempt > 0) {
-					logger.warn(`Retrying ${url} with direct connection (attempt ${attempt + 1}/${maxAttemptsPerProxy})`);
+					logger.warn(`Retrying ${url} with direct connection (attempt ${attempt + 1}/${directAttempts})`);
 					const backoff = Math.min(CONFIG.retryDelay * 1.5 ** attempt, 10000);
 					await delay(backoff);
 				}
@@ -353,11 +334,11 @@ async function fetchWithRetry(url: string): Promise<string> {
 
 				if (response.status === 429) {
 					const retryAfter = response.headers.get("Retry-After");
-					const delay = retryAfter
+					const retryDelay = retryAfter
 						? Number.parseInt(retryAfter) * 1000
 						: CONFIG.retryDelay * 1.5 ** attempt;
-					logger.warn(`Rate limited, waiting ${delay}ms`);
-					await new Promise((resolve) => setTimeout(resolve, delay));
+					logger.warn(`Rate limited, waiting ${retryDelay}ms`);
+					await delay(retryDelay);
 					continue;
 				}
 

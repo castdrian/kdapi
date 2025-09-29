@@ -154,6 +154,18 @@ export class ProxyManager {
 	}
 
 	markProxyAsRateLimited(proxy: ProxyConfig, cooldownMs: number): void {
+		this.setProxyCooldown(proxy, cooldownMs, "rate limited");
+	}
+
+	markProxyAsTemporarilyFailed(proxy: ProxyConfig, cooldownMs: number): void {
+		this.setProxyCooldown(proxy, cooldownMs, "encountered an error");
+	}
+
+	private setProxyCooldown(
+		proxy: ProxyConfig,
+		cooldownMs: number,
+		reason: string,
+	): void {
 		if (this.proxies.length === 0) {
 			return;
 		}
@@ -162,7 +174,7 @@ export class ProxyManager {
 		const cooldown = Math.max(cooldownMs, 1000);
 		this.proxyCooldowns.set(proxyKey, Date.now() + cooldown);
 		console.log(
-			`[PROXY] Proxy ${proxyKey} rate limited. Cooling down for ${Math.ceil(cooldown / 1000)}s`,
+			`[PROXY] Proxy ${proxyKey} ${reason}. Cooling down for ${Math.ceil(cooldown / 1000)}s`,
 		);
 		this.rotateProxy();
 	}
