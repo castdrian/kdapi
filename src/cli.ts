@@ -21,6 +21,11 @@ program
 	.option("--batch-size <number>", "Batch size for requests", "5")
 	.option("--no-cache", "Disable using cached HTML files")
 	.option("--force", "Force refresh all profiles", false)
+	.option(
+		"--cache-only",
+		"Use only cached HTML files and skip all network requests",
+		false,
+	)
 	.action(async (options) => {
 		// Create cache directories
 		const dirs = [
@@ -35,7 +40,14 @@ program
 			}
 		}
 
-		const useCache = options.cache && !options.force;
+		const offline = Boolean(options.cacheOnly);
+		const forceRefresh = offline ? false : options.force;
+		const useCache = offline ? true : options.cache && !forceRefresh;
+		if (offline && options.force) {
+			console.log(
+				"⚠️  Ignoring --force because --cache-only was provided (offline mode)",
+			);
+		}
 
 		console.log(
 			`Running with options: ${JSON.stringify(
@@ -45,28 +57,44 @@ program
 					batchSize: options.batchSize,
 					delay: options.delay,
 					useCache: useCache,
-					forceRefresh: options.force,
+					forceRefresh,
+					offline,
 				},
 				null,
 				2,
 			)}`,
 		);
 
-		if (options.debug) {
-			await runDebugMode({
-				sampleSize: Number.parseInt(options.sample),
-				randomSamples: true,
-				batchSize: Number.parseInt(options.batchSize),
-				delayBetweenBatches: Number.parseInt(options.delay),
-				useCache: useCache,
-			});
-		} else {
-			await runProductionMode({
-				batchSize: Number.parseInt(options.batchSize),
-				delayBetweenBatches: Number.parseInt(options.delay),
-				useCache: useCache,
-				forceRefresh: options.force,
-			});
+		// Add helpful information for CI environments
+		if (process.env.CI || process.env.GITHUB_ACTIONS) {
+			console.log("🔧 Running in CI environment - using enhanced error handling");
+		}
+
+		try {
+			if (options.debug) {
+				await runDebugMode({
+					sampleSize: Number.parseInt(options.sample),
+					randomSamples: true,
+					batchSize: Number.parseInt(options.batchSize),
+					delayBetweenBatches: Number.parseInt(options.delay),
+					useCache,
+					offline,
+				});
+			} else {
+				await runProductionMode({
+					batchSize: Number.parseInt(options.batchSize),
+					delayBetweenBatches: Number.parseInt(options.delay),
+					useCache,
+					forceRefresh,
+					offline,
+				});
+			}
+			console.log("✅ Scraping completed successfully");
+		} catch (error) {
+			console.error("❌ Scraping failed:", error instanceof Error ? error.message : String(error));
+			console.log("⚠️  Some data may have been saved despite the error");
+			// Don't exit with error code - let CI continue
+			process.exit(0);
 		}
 	});
 

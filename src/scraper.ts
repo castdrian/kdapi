@@ -1,9 +1,13 @@
 import { fetch } from "undici";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import * as cheerio from "cheerio";
 import { v4 as uuidv4 } from "uuid";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { CacheManager } from "@src/cache";
+import { ProxyManager, type ProxyConfig } from "@src/proxy";
+import { logger } from "@src/logger";
+import { scraperUI } from "@src/ui";
 import {
 	BloodType,
 	type DataSet,
@@ -16,6 +20,11 @@ import {
 	type IdolNames,
 	type GroupNames,
 	type GroupActivity,
+	type EntityStats,
+	type IdolProfile,
+	type FandomInfo,
+	type AttributeField,
+	type GroupProfile,
 } from "@src/types";
 
 export { runDebugMode, runProductionMode, scrapeProfiles };
@@ -47,12 +56,12 @@ const ENDPOINTS = {
 const CONFIG = {
 	debug: true,
 	retryAttempts: 5, // Increased from 3
-	retryDelay: 2000, // Increased from 1000
+	retryDelay: 1500, // Reduced for faster processing
 	requestTimeout: 30000, // Increased from 20000
 	rateLimitDelay: 0, // No delay needed when using cache
 	maxRequestsPerMinute: 1000, // Higher limit for cached content
-	maxConcurrent: 5,
-	concurrentRequests: 5,
+	maxConcurrent: 10, // Increased for production
+	concurrentRequests: 10, // Increased for production
 	debugSampleSize: 5,
 	batchLogInterval: 10, // Log batch progress every N items
 	saveInterval: 100, // Save progress every N items
@@ -75,14 +84,6 @@ const CONFIG = {
 		"Upgrade-Insecure-Requests": "1",
 	},
 } as const;
-
-// Add logging utility after CONFIG
-const logger = {
-	info: (msg: string) => console.log(`\x1b[36m[INFO]\x1b[0m ${msg}`),
-	warn: (msg: string) => console.log(`\x1b[33m[WARN]\x1b[0m ${msg}`),
-	error: (msg: string) => console.log(`\x1b[31m[ERROR]\x1b[0m ${msg}`),
-	success: (msg: string) => console.log(`\x1b[32m[SUCCESS]\x1b[0m ${msg}`),
-};
 
 // Cache for profile URL to ID mappings
 const urlToIdCache = new Map<string, string>();
@@ -117,8 +118,10 @@ const failedRequests = new Map<
 >();
 
 const cache = new CacheManager();
+const proxyManager = new ProxyManager();
 
-let startTime = Date.now();
+let offlineMode = false;
+
 
 async function shouldRetry(url: string): Promise<boolean> {
 	const failed = failedRequests.get(url);
@@ -154,6 +157,156 @@ function cleanText(text: string): string {
 		.replace(/['′]/g, "'");
 }
 
+type AttributeEntry = {
+	label: string;
+	value: string;
+	labelElement: cheerio.Cheerio<unknown>;
+	valueElement?: cheerio.Cheerio<unknown>;
+};
+
+function normalizeLabel(label: string): string {
+	return cleanText(label)
+		.toLowerCase()
+		.replace(/[:：]/g, "")
+		.replace(/\(.*?\)/g, "")
+		.replace(/[^a-z0-9]+/g, " ")
+		.trim();
+}
+
+function parseDelimitedList(value: string): string[] {
+	return value
+		.split(/[,•·‧;]|(?:\sand\s)/i)
+		.map((part) => cleanText(part))
+		.filter((part) => part.length > 0);
+}
+
+function parseHeight(value: string): number | undefined {
+	const match = value.match(/(\d+(?:\.\d+)?)\s*cm/i);
+	if (match && match[1]) {
+		return Number.parseFloat(match[1]);
+	}
+	return undefined;
+}
+
+function parseWeight(value: string): number | undefined {
+	const match = value.match(/(\d+(?:\.\d+)?)\s*kg/i);
+	if (match && match[1]) {
+		return Number.parseFloat(match[1]);
+	}
+	return undefined;
+}
+
+function parseCompactNumber(value: string): number | undefined {
+	const cleaned = cleanText(value).replace(/,/g, "").toLowerCase();
+	if (!cleaned) return undefined;
+	const match = cleaned.match(/^(-?\d+(?:\.\d+)?)([km]?)$/);
+	if (match) {
+		const baseValue = match[1] ?? "";
+		const base = Number.parseFloat(baseValue);
+		if (Number.isNaN(base)) return undefined;
+		const suffix = match[2];
+		const multiplier = suffix === "m" ? 1_000_000 : suffix === "k" ? 1_000 : 1;
+		return Math.round(base * multiplier);
+	}
+	const numeric = Number.parseFloat(cleaned);
+	return Number.isNaN(numeric) ? undefined : numeric;
+}
+
+function collectAttributeEntries($: cheerio.CheerioAPI): AttributeEntry[] {
+	const entries: AttributeEntry[] = [];
+
+	$(".profile-grid section.cell").each((_, el) => {
+		const $el = $(el);
+		if ($el.closest("#star-companies").length > 0) return;
+		const nameText = cleanText($el.find(".name").first().text() || $el.find("strong").first().text());
+		const label = nameText.replace(/[:：]\s*$/, "");
+		if (!label) return;
+		const valueElement = $el.find(".value").first();
+		const value = cleanText(valueElement.text() || $el.clone().children(".name").remove().end().text());
+		entries.push({
+			label,
+			value,
+			labelElement: $el,
+			valueElement: valueElement.length ? valueElement : undefined,
+		});
+	});
+
+	const equalElements = $(".data-grid .equal").toArray();
+	for (let i = 0; i < equalElements.length; i++) {
+		const $label = $(equalElements[i]);
+		const strong = $label.find("strong").first();
+		if (!strong.length) continue;
+		const label = cleanText(strong.text()).replace(/[:：]\s*$/, "");
+		if (!label) continue;
+		const $value = i + 1 < equalElements.length ? $(equalElements[i + 1]) : undefined;
+		const value = $value ? cleanText($value.text()) : "";
+		entries.push({
+			label,
+			value,
+			labelElement: $label,
+			valueElement: $value,
+		});
+		if ($value) i += 1;
+	}
+
+	return entries;
+}
+
+function extractColorsFromEntry(entry: AttributeEntry): string[] {
+	const colors = new Set<string>();
+	const valueElement = entry.valueElement as cheerio.Cheerio<any> | undefined;
+	if (valueElement) {
+		const legendsText = cleanText(
+			valueElement.find(".fandom-box .legend, .fandom-box span").text(),
+		);
+		for (const name of parseDelimitedList(legendsText)) {
+			if (name) colors.add(name);
+		}
+	}
+
+	for (const name of parseDelimitedList(entry.value)) {
+		if (name) colors.add(name);
+	}
+
+	return [...colors];
+}
+
+function extractStats($: cheerio.CheerioAPI): EntityStats {
+	const stats: EntityStats = {};
+	$(".stat-icons .stat").each((_, el) => {
+		const $el = $(el);
+		const iconClass = $el.find("i").attr("class") || "";
+		const valueText = cleanText($el.find("strong").text());
+		const numeric = parseCompactNumber(valueText);
+		if (!numeric && numeric !== 0) return;
+
+		if (iconClass.includes("fa-trophy")) {
+			stats.wins = numeric;
+		} else if (iconClass.includes("fa-image")) {
+			stats.pictures = numeric;
+		} else if (iconClass.includes("fa-video")) {
+			stats.videos = numeric;
+		} else if (iconClass.includes("fa-compact-disc")) {
+			stats.albums = numeric;
+		} else if (iconClass.includes("fa-eye")) {
+			stats.views = numeric;
+		} else if (iconClass.includes("fa-heart")) {
+			stats.favorites = numeric;
+		}
+	});
+
+	return cleanupUndefined(stats);
+}
+
+function extractCategoryTags($: cheerio.CheerioAPI): string[] {
+	const tags = new Set<string>();
+	$(".seperated-links a").each((_, link) => {
+		const tag = cleanText($(link).text());
+		if (tag) tags.add(tag);
+	});
+	return [...tags];
+}
+
 // Rate limiting token bucket
 const rateLimiter = {
 	tokens: CONFIG.maxRequestsPerMinute as number,
@@ -179,20 +332,25 @@ const rateLimiter = {
 	},
 };
 
+
 async function fetchWithRetry(url: string): Promise<string> {
-	const maxAttempts = CONFIG.retryAttempts;
-	let attempt = 0;
+	let currentProxy: ProxyConfig | null = null;
+	let triedDirectConnection = false;
 
-	while (attempt < maxAttempts) {
+	// First, try all available proxies
+	while (proxyManager.hasWorkingProxies()) {
+		currentProxy = proxyManager.getCurrentProxy();
+		if (!currentProxy) break;
+
+		logger.info(`Fetching ${url} via proxy ${currentProxy.host}:${currentProxy.port}`);
+		scraperUI.setCurrentProxy({
+			host: currentProxy.host,
+			port: currentProxy.port,
+			protocol: currentProxy.protocol,
+		});
+
 		try {
-			if (attempt > 0) {
-				logger.warn(`Retrying ${url} (attempt ${attempt + 1}/${maxAttempts})`);
-				const backoff = Math.min(CONFIG.retryDelay * 1.5 ** attempt, 30000);
-				await delay(backoff);
-			}
-
 			await rateLimiter.getToken();
-			logger.info(`Fetching ${url}`);
 
 			const controller = new AbortController();
 			const timeoutId = setTimeout(
@@ -200,7 +358,8 @@ async function fetchWithRetry(url: string): Promise<string> {
 				CONFIG.requestTimeout,
 			);
 
-			const response = await fetch(url, {
+			// Prepare fetch options
+			const fetchOptions: Parameters<typeof fetch>[1] = {
 				headers: {
 					...CONFIG.headers,
 					"User-Agent": CONFIG.userAgent,
@@ -210,54 +369,210 @@ async function fetchWithRetry(url: string): Promise<string> {
 					DNT: "1",
 				},
 				signal: controller.signal,
-			});
+			};
 
+			// Add proxy configuration if available (for HTTP proxies)
+				if (currentProxy.protocol === "http") {
+					const proxyUrl = `http://${currentProxy.host}:${currentProxy.port}`;
+					try {
+						const agent = new HttpsProxyAgent(proxyUrl);
+						// @ts-ignore - undici typing issue with dispatcher
+						fetchOptions.dispatcher = agent;
+					} catch (proxyError) {
+						logger.warn(`Failed to set up proxy ${proxyUrl}: ${proxyError}`);
+						throw new Error("Proxy setup failed");
+					}
+				}
+
+			const response = await fetch(url, fetchOptions);
 			clearTimeout(timeoutId);
 
 			if (response.status === 429) {
-				attempt++;
 				const retryAfter = response.headers.get("Retry-After");
-				const delay = retryAfter
-					? Number.parseInt(retryAfter) * 1000
-					: CONFIG.retryDelay * 1.5 ** attempt;
-				logger.warn(`Rate limited, waiting ${delay}ms`);
-				await new Promise((resolve) => setTimeout(resolve, delay));
+				const retryAfterSeconds = retryAfter
+					? Number.parseInt(retryAfter, 10)
+					: Number.NaN;
+				const cooldownMs = Number.isFinite(retryAfterSeconds)
+					? retryAfterSeconds * 1000
+					: CONFIG.retryDelay;
+				const sanitizedCooldown = Number.isFinite(cooldownMs)
+					? Math.max(cooldownMs, 1000)
+					: 5000;
+				logger.warn(
+					`Proxy ${currentProxy.host}:${currentProxy.port} hit rate limit. Rotating proxy (cooldown ${Math.ceil(sanitizedCooldown / 1000)}s)`,
+				);
+				const appliedCooldown = proxyManager.markProxyAsRateLimited(
+					currentProxy,
+					sanitizedCooldown,
+				);
+				scraperUI.setCurrentProxy({
+					host: currentProxy.host,
+					port: currentProxy.port,
+					protocol: currentProxy.protocol,
+					cooldownSeconds: Math.ceil(appliedCooldown / 1000),
+				});
+				continue;
+			}
+
+			if (response.status === 403) {
+				logger.warn(`Proxy ${currentProxy.host}:${currentProxy.port} got 403, marking as failed`);
+				proxyManager.markProxyAsFailed(currentProxy);
+				scraperUI.setCurrentProxy(null);
 				continue;
 			}
 
 			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+				logger.warn(
+					`Proxy ${currentProxy.host}:${currentProxy.port} returned ${response.status}. Rotating to next proxy`,
+				);
+				const appliedCooldown = proxyManager.markProxyAsTemporarilyFailed(
+					currentProxy,
+					CONFIG.retryDelay,
+				);
+				scraperUI.setCurrentProxy({
+					host: currentProxy.host,
+					port: currentProxy.port,
+					protocol: currentProxy.protocol,
+					cooldownSeconds: Math.ceil(appliedCooldown / 1000),
+				});
+				continue;
 			}
 
 			const text = await response.text();
 			if (text.length < 500 || text.includes("Too Many Requests")) {
-				throw new Error("Invalid response received");
+				logger.warn(
+					`Proxy ${currentProxy.host}:${currentProxy.port} returned invalid payload. Rotating to next proxy`,
+				);
+				const appliedCooldown = proxyManager.markProxyAsTemporarilyFailed(
+					currentProxy,
+					CONFIG.retryDelay,
+				);
+				scraperUI.setCurrentProxy({
+					host: currentProxy.host,
+					port: currentProxy.port,
+					protocol: currentProxy.protocol,
+					cooldownSeconds: Math.ceil(appliedCooldown / 1000),
+				});
+				continue;
 			}
 
-			logger.success(`Successfully fetched ${url}`);
+			logger.success(`Successfully fetched ${url} via proxy ${currentProxy.host}:${currentProxy.port}`);
 			failedRequests.delete(url);
+			proxyManager.markProxyAsSuccessful(currentProxy);
+			scraperUI.setCurrentProxy({
+				host: currentProxy.host,
+				port: currentProxy.port,
+				protocol: currentProxy.protocol,
+			});
 			return text;
 		} catch (error) {
-			attempt++;
 			logger.error(
-				`Failed to fetch ${url}: ${error instanceof Error ? error.message : String(error)}`,
+				`Failed to fetch ${url} via proxy ${currentProxy.host}:${currentProxy.port}: ${error instanceof Error ? error.message : String(error)}`,
 			);
 
-			if (attempt >= maxAttempts) {
-				logger.error(`Max retry attempts (${maxAttempts}) reached for ${url}`);
-				throw error;
+			const message = error instanceof Error ? error.message : String(error);
+			if (
+				message.includes("403") ||
+				message.includes("Proxy setup failed") ||
+				message.includes("certificate") ||
+				message.includes("ENOTFOUND")
+			) {
+				proxyManager.markProxyAsFailed(currentProxy);
+				scraperUI.setCurrentProxy(null);
+			} else {
+				const appliedCooldown = proxyManager.markProxyAsTemporarilyFailed(
+					currentProxy,
+					CONFIG.retryDelay,
+				);
+				scraperUI.setCurrentProxy({
+					host: currentProxy.host,
+					port: currentProxy.port,
+					protocol: currentProxy.protocol,
+					cooldownSeconds: Math.ceil(appliedCooldown / 1000),
+				});
 			}
 		}
 	}
 
-	throw new Error("Max retry attempts reached");
+	// If all proxies failed, try direct connection as last resort  
+	if (!triedDirectConnection) {
+		triedDirectConnection = true;
+		logger.warn("All proxies failed, trying direct connection as last resort");
+		scraperUI.setCurrentProxy(null);
+		const directAttempts = 3;
+		
+		for (let attempt = 0; attempt < directAttempts; attempt++) {
+			try {
+				if (attempt > 0) {
+					logger.warn(`Retrying ${url} with direct connection (attempt ${attempt + 1}/${directAttempts})`);
+					const backoff = Math.min(CONFIG.retryDelay * 1.5 ** attempt, 10000);
+					await delay(backoff);
+				}
+
+				await rateLimiter.getToken();
+				logger.info(`Fetching ${url} (direct connection)`);
+
+				const controller = new AbortController();
+				const timeoutId = setTimeout(
+					() => controller.abort(),
+					CONFIG.requestTimeout,
+				);
+
+				const response = await fetch(url, {
+					headers: {
+						...CONFIG.headers,
+						"User-Agent": CONFIG.userAgent,
+						Host: new URL(url).hostname,
+						Referer: "https://www.google.com/",
+						Connection: "keep-alive",
+						DNT: "1",
+					},
+					signal: controller.signal,
+				});
+
+				clearTimeout(timeoutId);
+
+				if (response.status === 429) {
+					const retryAfter = response.headers.get("Retry-After");
+					const retryDelay = retryAfter
+						? Number.parseInt(retryAfter) * 1000
+						: CONFIG.retryDelay * 1.5 ** attempt;
+					logger.warn(`Rate limited, waiting ${retryDelay}ms`);
+					await delay(retryDelay);
+					continue;
+				}
+
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+				}
+
+				const text = await response.text();
+				if (text.length < 500 || text.includes("Too Many Requests")) {
+					throw new Error("Invalid response received");
+				}
+
+				logger.success(`Successfully fetched ${url} via direct connection`);
+				failedRequests.delete(url);
+				return text;
+				
+			} catch (error) {
+				logger.error(
+					`Failed to fetch ${url} via direct connection: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		}
+	}
+	
+	// Only after exhausting ALL proxies AND direct connection, throw error to quit
+	logger.error(`All proxies and direct connection failed for ${url}. No more options available.`);
+	throw new Error("All proxies exhausted - unable to fetch any content. Terminating scraper.");
 }
 
 async function parseProfileWithCache(
 	url: string,
 	type: "idol" | "group",
 	forceRefresh = false,
-): Promise<string> {
+): Promise<string | null> {
 	if (!forceRefresh) {
 		const cached = await cache.get(type, url);
 		if (cached) {
@@ -265,9 +580,25 @@ async function parseProfileWithCache(
 		}
 	}
 
-	// Only apply delays when actually fetching
+	if (offlineMode) {
+		if (forceRefresh) {
+			logger.warn(
+				`[OFFLINE] Force refresh requested for ${url} but offline mode is enabled. Using cache if available.`,
+			);
+		}
+		logger.warn(`[OFFLINE] Missing cached content for ${url}, skipping fetch`);
+		return null;
+	}
+
 	logger.info(`Cache miss for ${url}, fetching...`);
 	const html = await fetchWithRetry(url);
+
+	// Handle empty responses gracefully
+	if (!html || html.length === 0) {
+		logger.warn(`Failed to fetch content for ${url}, skipping...`);
+		return null;
+	}
+
 	await cache.set(type, url, html);
 	return html;
 }
@@ -832,6 +1163,149 @@ async function extractGroupData(
 		},
 	};
 
+	const stats = extractStats($);
+	if (Object.keys(stats).length > 0) {
+		group.stats = stats;
+	}
+
+	const attributeEntries = collectAttributeEntries($);
+	const groupProfile: GroupProfile = {};
+	const extraFields: AttributeField[] = [];
+	let fandomInfo: FandomInfo | undefined;
+	for (const entry of attributeEntries) {
+		const normalized = normalizeLabel(entry.label);
+		const valueText = entry.value ?? "";
+		const valueElement = entry.valueElement as cheerio.Cheerio<any> | undefined;
+		let handled = false;
+
+		switch (normalized) {
+			case "country": {
+				const name = valueText;
+				if (name) {
+					const flagClass = valueElement
+						?.find(".flag-icon")
+						.attr("class");
+					const codeMatch = flagClass?.match(/flag-icon-([a-z]{2})/i);
+					group.country = {
+						name,
+						code: codeMatch ? codeMatch[1] : undefined,
+					};
+					handled = true;
+				}
+				break;
+			}
+			case "fandom": {
+				if (!fandomInfo) fandomInfo = {};
+				fandomInfo.name = valueText || fandomInfo.name || null;
+				handled = true;
+				break;
+			}
+			case "fandom color s":
+			case "fandom colors": {
+				const colors = extractColorsFromEntry(entry);
+				if (colors.length > 0) {
+					if (!fandomInfo) fandomInfo = {};
+					fandomInfo.colors = [...new Set([...(fandomInfo.colors ?? []), ...colors])];
+				}
+				handled = true;
+				break;
+			}
+			case "representative color":
+			case "representative colors": {
+				const colors = extractColorsFromEntry(entry);
+				if (colors.length > 0) {
+					groupProfile.representativeColors = [
+						...new Set([...(groupProfile.representativeColors ?? []), ...colors]),
+					];
+				}
+				handled = true;
+				break;
+			}
+			case "subgroup s":
+			case "subgroups": {
+				const subgroups = parseDelimitedList(valueText);
+				if (subgroups.length > 0) {
+					groupProfile.subgroups = [...new Set([...(groupProfile.subgroups ?? []), ...subgroups])];
+				}
+				handled = true;
+				break;
+			}
+			case "main group": {
+				if (valueText) {
+					groupProfile.mainGroup = valueText;
+					handled = true;
+				}
+				break;
+			}
+			case "most popular member": {
+				if (valueText) {
+					groupProfile.mostPopularMember = valueText;
+					handled = true;
+				}
+				break;
+			}
+			case "debut to 1st win":
+			case "debut to first win": {
+				if (valueText) {
+					groupProfile.debutToFirstWin = valueText;
+					handled = true;
+				}
+				break;
+			}
+			case "alias":
+			case "also known as": {
+				const aliases = parseDelimitedList(valueText);
+				if (aliases.length > 0) {
+					groupProfile.aliases = [...new Set([...(groupProfile.aliases ?? []), ...aliases])];
+				}
+				handled = true;
+				break;
+			}
+			default:
+				break;
+		}
+
+		if (!handled) {
+			const cleanedValue = cleanText(valueText);
+			if (cleanedValue && cleanedValue !== "-") {
+				extraFields.push({ label: entry.label, value: cleanedValue });
+			}
+		}
+	}
+
+	const groupTags = extractCategoryTags($);
+	if (groupTags.length > 0) {
+		group.tags = groupTags;
+	}
+
+	if (fandomInfo && !fandomInfo.name && (!fandomInfo.colors || fandomInfo.colors.length === 0)) {
+		fandomInfo = undefined;
+	}
+
+	if (fandomInfo) {
+		group.fandom = fandomInfo;
+		if (!group.groupInfo.fandomName && fandomInfo.name) {
+			group.groupInfo.fandomName = fandomInfo.name;
+		}
+	} else if (group.groupInfo.fandomName) {
+		group.fandom = { name: group.groupInfo.fandomName };
+	}
+
+	if (extraFields.length > 0) {
+		group.extraFields = extraFields;
+	}
+
+	if (
+		groupProfile.mainGroup ||
+		groupProfile.subgroups?.length ||
+		groupProfile.representativeColors?.length ||
+		groupProfile.mostPopularMember ||
+		groupProfile.debutToFirstWin ||
+		groupProfile.aliases?.length
+	) {
+		group.profile = cleanupUndefined(groupProfile);
+	}
+
 	// Enhanced group name extraction
 	const names: GroupNames = {
 		stage: null as string | null,
@@ -1109,6 +1583,173 @@ async function parseIdolProfile(
 		},
 	};
 
+	const stats = extractStats($);
+	if (Object.keys(stats).length > 0) {
+		idol.stats = stats;
+	}
+
+	const attributeEntries = collectAttributeEntries($);
+	const idolProfile: IdolProfile = {};
+	const extraFields: AttributeField[] = [];
+	let fandom: FandomInfo | undefined;
+
+	for (const entry of attributeEntries) {
+		const normalized = normalizeLabel(entry.label);
+		const valueText = entry.value ?? "";
+		let handled = false;
+
+		switch (normalized) {
+			case "height": {
+				const height = parseHeight(valueText);
+				if (height) {
+					idol.physicalInfo = { ...idol.physicalInfo, heightCm: height };
+					handled = true;
+				}
+				break;
+			}
+			case "weight": {
+				const weight = parseWeight(valueText);
+				if (weight) {
+					idol.physicalInfo = { ...idol.physicalInfo, weightKg: weight };
+					handled = true;
+				}
+				break;
+			}
+			case "language s":
+			case "languages": {
+				const languages = parseDelimitedList(valueText);
+				if (languages.length > 0) {
+					idolProfile.languages = [...new Set([...(idolProfile.languages ?? []), ...languages])];
+					handled = true;
+				}
+				break;
+			}
+			case "position":
+			case "positions": {
+				const positions = parseDelimitedList(valueText);
+				if (positions.length > 0) {
+					idolProfile.positions = [...new Set([...(idolProfile.positions ?? []), ...positions])];
+					handled = true;
+				}
+				break;
+			}
+			case "education": {
+				const education = parseDelimitedList(valueText);
+				if (education.length > 0) {
+					idolProfile.education = [...new Set([...(idolProfile.education ?? []), ...education])];
+					handled = true;
+				}
+				break;
+			}
+			case "nickname":
+			case "nicknames": {
+				const nicknames = parseDelimitedList(valueText);
+				if (nicknames.length > 0) {
+					idolProfile.nicknames = [...new Set([...(idolProfile.nicknames ?? []), ...nicknames])];
+					handled = true;
+				}
+				break;
+			}
+			case "training period": {
+				if (valueText) {
+					idolProfile.trainingPeriod = valueText;
+					handled = true;
+				}
+				break;
+			}
+			case "zodiac sign":
+			case "zodiac-sign": {
+				if (valueText) {
+					idolProfile.zodiacSign = valueText;
+					handled = true;
+				}
+				break;
+			}
+			case "fandom": {
+				if (!fandom) fandom = {};
+				fandom.name = valueText || fandom.name || null;
+				handled = true;
+				break;
+			}
+			case "fandom color s":
+			case "fandom colors": {
+				const colors = extractColorsFromEntry(entry);
+				if (colors.length > 0) {
+					if (!fandom) fandom = {};
+					fandom.colors = [...new Set([...(fandom.colors ?? []), ...colors])];
+				}
+				handled = true;
+				break;
+			}
+			case "representative color":
+			case "representative colors": {
+				const colors = extractColorsFromEntry(entry);
+				if (colors.length > 0) {
+					idolProfile.representativeColors = [
+						...new Set([...(idolProfile.representativeColors ?? []), ...colors]),
+					];
+				}
+				handled = true;
+				break;
+			}
+			case "debut to 1st win":
+			case "debut to first win": {
+				if (valueText) {
+					idolProfile.debutToFirstWin = [...(idolProfile.debutToFirstWin ?? []), valueText];
+					handled = true;
+				}
+				break;
+			}
+			case "kpopping rank": {
+				if (valueText) {
+					idolProfile.rankings = [...(idolProfile.rankings ?? []), valueText];
+					handled = true;
+				}
+				break;
+			}
+			default:
+				break;
+		}
+
+		if (!handled) {
+			const cleanedValue = cleanText(valueText);
+			if (cleanedValue && cleanedValue !== "-") {
+				extraFields.push({ label: entry.label, value: cleanedValue });
+			}
+		}
+	}
+
+	const tags = extractCategoryTags($);
+	if (tags.length > 0) {
+		idol.tags = tags;
+	}
+
+	if (fandom && !fandom.name && (!fandom.colors || fandom.colors.length === 0)) {
+		fandom = undefined;
+	}
+
+	if (fandom) {
+		idol.fandom = fandom;
+	}
+
+	if (extraFields.length > 0) {
+		idol.extraFields = extraFields;
+	}
+
+	if (
+		idolProfile.positions?.length ||
+		idolProfile.languages?.length ||
+		idolProfile.education?.length ||
+		idolProfile.nicknames?.length ||
+		idolProfile.representativeColors?.length ||
+		idolProfile.debutToFirstWin?.length ||
+		idolProfile.rankings?.length ||
+		idolProfile.trainingPeriod ||
+		idolProfile.zodiacSign
+	) {
+		idol.profile = cleanupUndefined(idolProfile);
+	}
+
 	// Enhanced status detection
 	const statusText = $(
 		'.data-grid .equal:contains("Current state:"), .data-grid .equal:contains("Status:")',
@@ -1259,8 +1900,9 @@ async function processIncrementalScraping(options: {
 	type: "idol" | "group";
 	gender: "female" | "male" | "coed";
 	forceRefresh?: boolean; // Add forceRefresh parameter
+	concurrency?: number;
 }): Promise<(Idol | Group)[]> {
-	const { existingData, type, gender, forceRefresh = false } = options;
+	const { existingData, type, gender, forceRefresh = false, concurrency } = options;
 
 	// Get existing profile URLs
 	const existingUrls = new Set(
@@ -1276,6 +1918,11 @@ async function processIncrementalScraping(options: {
 		type,
 		forceRefresh, // Pass forceRefresh here
 	);
+
+	if (!mainPageHtml) {
+		logger.error(`Failed to fetch main page for ${gender} ${type}s, skipping category`);
+		return [];
+	}
 
 	const $ = cheerio.load(mainPageHtml);
 	const allUrls = extractProfileLinks($);
@@ -1295,6 +1942,7 @@ async function processIncrementalScraping(options: {
 		urls: urlsToProcess,
 		useCache: !forceRefresh, // Don't use cache when forceRefresh is true
 		forceRefresh, // Pass forceRefresh to scrapeProfiles
+		concurrency,
 	});
 }
 
@@ -1303,7 +1951,20 @@ async function runProductionMode(options: {
 	delayBetweenBatches: number;
 	useCache: boolean;
 	forceRefresh: boolean;
+	offline: boolean;
 }): Promise<void> {
+	offlineMode = options.offline;
+	const concurrency = Math.max(1, options.batchSize);
+
+	let proxyPoolSize = 0;
+	if (!offlineMode) {
+		await proxyManager.initialize();
+		proxyPoolSize = proxyManager.getPoolSize();
+		scraperUI.setCurrentProxy(null);
+	} else {
+		proxyManager.reset();
+	}
+
 	let dataset: DataSet = {
 		femaleIdols: [],
 		maleIdols: [],
@@ -1312,7 +1973,6 @@ async function runProductionMode(options: {
 		coedGroups: [],
 	};
 
-	// Load existing dataset if available
 	try {
 		const existingGroups = require(PATHS.GROUPS_FILE);
 		const existingIdols = require(PATHS.IDOLS_FILE);
@@ -1322,15 +1982,22 @@ async function runProductionMode(options: {
 			...existingIdols,
 		};
 		logger.info("Loaded existing dataset");
-
-		// Initialize URL to ID cache from existing dataset
 		initializeUrlToIdCache(dataset);
 		logger.info("Initialized URL to ID cache");
 	} catch (e) {
 		logger.warn("No existing dataset found, starting fresh");
 	}
 
-	// Process each category incrementally
+	scraperUI.startSession("production", {
+		batchSize: options.batchSize,
+		delayBetweenBatches: options.delayBetweenBatches,
+		useCache: options.useCache,
+		forceRefresh: options.forceRefresh,
+		offline: offlineMode,
+		concurrency,
+		proxyPoolSize,
+	});
+
 	const categories = [
 		{ type: "idol" as const, gender: "female" as const },
 		{ type: "idol" as const, gender: "male" as const },
@@ -1339,52 +2006,69 @@ async function runProductionMode(options: {
 		{ type: "group" as const, gender: "coed" as const },
 	];
 
-	for (const category of categories) {
-		logger.info(`Processing ${category.gender} ${category.type}s...`);
+	try {
+		for (const category of categories) {
+			try {
+				logger.info(`Processing ${category.gender} ${category.type}s...`);
 
-		const newProfiles = await processIncrementalScraping({
-			existingData: dataset,
-			...category,
-			forceRefresh: options.forceRefresh, // Pass forceRefresh to processIncrementalScraping
-		});
+				const newProfiles = await processIncrementalScraping({
+					existingData: dataset,
+					...category,
+					forceRefresh: options.forceRefresh,
+					concurrency,
+				});
 
-		// Merge new profiles with existing data
-		if (category.type === "idol") {
-			if (category.gender === "female") {
-				dataset.femaleIdols = mergeProfiles(
-					dataset.femaleIdols,
-					newProfiles as Idol[],
+				if (category.type === "idol") {
+					if (category.gender === "female") {
+						dataset.femaleIdols = mergeProfiles(
+							dataset.femaleIdols,
+							newProfiles as Idol[],
+						);
+					} else {
+						dataset.maleIdols = mergeProfiles(
+							dataset.maleIdols,
+							newProfiles as Idol[],
+						);
+					}
+				} else {
+					if (category.gender === "female") {
+						dataset.girlGroups = mergeProfiles(
+							dataset.girlGroups,
+							newProfiles as Group[],
+						);
+					} else if (category.gender === "male") {
+						dataset.boyGroups = mergeProfiles(
+							dataset.boyGroups,
+							newProfiles as Group[],
+						);
+					} else {
+						dataset.coedGroups = mergeProfiles(
+							dataset.coedGroups,
+							newProfiles as Group[],
+						);
+					}
+				}
+
+				await saveDataset(dataset);
+				logger.success(`Completed ${category.gender} ${category.type}s`);
+			} catch (error) {
+				logger.error(
+					`Failed to process ${category.gender} ${category.type}s: ${error instanceof Error ? error.message : String(error)}`,
 				);
-			} else {
-				dataset.maleIdols = mergeProfiles(
-					dataset.maleIdols,
-					newProfiles as Idol[],
-				);
+				logger.warn(`Continuing with next category...`);
+				try {
+					await saveDataset(dataset);
+				} catch (saveError) {
+					logger.error(`Failed to save dataset after error: ${saveError}`);
+				}
 			}
-		} else {
-			if (category.gender === "female") {
-				dataset.girlGroups = mergeProfiles(
-					dataset.girlGroups,
-					newProfiles as Group[],
-				);
-			} else if (category.gender === "male") {
-				dataset.boyGroups = mergeProfiles(
-					dataset.boyGroups,
-					newProfiles as Group[],
-				);
-			} else {
-				dataset.coedGroups = mergeProfiles(
-					dataset.coedGroups,
-					newProfiles as Group[],
-				);
+
+			if (!offlineMode && options.delayBetweenBatches > 0) {
+				await delay(options.delayBetweenBatches);
 			}
 		}
-
-		// Save progress after each category
-		await saveDataset(dataset);
-		logger.success(`Completed ${category.gender} ${category.type}s`);
-
-		await delay(options.delayBetweenBatches);
+	} finally {
+		scraperUI.stop();
 	}
 }
 
@@ -1508,6 +2192,7 @@ async function scrapeProfiles(options: {
 	urls?: string[];
 	useCache?: boolean;
 	forceRefresh?: boolean; // Add forceRefresh parameter
+	concurrency?: number;
 }): Promise<(Idol | Group)[]> {
 	const {
 		type,
@@ -1517,9 +2202,10 @@ async function scrapeProfiles(options: {
 		urls,
 		useCache = true,
 		forceRefresh = false, // Default to false
+		concurrency,
 	} = options;
 
-	startTime = Date.now(); // Reset start time for each scrape session
+	// Reset metrics for this scrape session
 
 	try {
 		// Get URLs to process
@@ -1531,6 +2217,12 @@ async function scrapeProfiles(options: {
 				type,
 				forceRefresh, // Pass forceRefresh here
 			);
+			
+			if (!mainPageHtml) {
+				logger.error(`Failed to fetch main page for ${gender} ${type}s, skipping category`);
+				return [];
+			}
+			
 			const $ = cheerio.load(mainPageHtml);
 			profileUrls = extractProfileLinks($);
 		}
@@ -1553,71 +2245,43 @@ async function scrapeProfiles(options: {
 
 		logger.info(`Starting ${gender} ${type} scraping...`);
 		logger.info(`Total profiles to process: ${total}`);
-		logger.info(`Using cache: ${useCache && !forceRefresh}`); // Update this line
+		logger.info(`Using cache: ${useCache && !forceRefresh}`);
 		if (!forceRefresh && processedUrls.size > 0) {
-			// Only show this if not forcing refresh
 			logger.info(`Skipping ${processedUrls.size} already processed profiles`);
 		}
 
+		scraperUI.setCategory(`${gender} ${type}`, total);
+		scraperUI.setCurrentUrl(null);
+
 		const results: (Idol | Group)[] = [];
-		const batchSize = CONFIG.concurrentRequests;
-		let processed = 0;
-		const startTime = Date.now();
-		const lastUpdate = startTime;
-
-		// Track global progress
-		const allProfiles = {
-			total: profileUrls.length,
-			processed: 0,
-			startTime: Date.now(),
-			failures: 0,
-		};
-
-		logger.info(
-			`Total profiles to process across all categories: ${allProfiles.total}`,
-		);
-
-		const updateGlobalProgress = () => {
-			allProfiles.processed++;
-			const progress = (
-				(allProfiles.processed / allProfiles.total) *
-				100
-			).toFixed(1);
-			const elapsed = Date.now() - allProfiles.startTime;
-			const eta = Math.ceil(
-				((elapsed / allProfiles.processed) *
-					(allProfiles.total - allProfiles.processed)) /
-					1000,
-			);
-			const hours = Math.floor(eta / 3600);
-			const minutes = Math.floor((eta % 3600) / 60);
-
-			logger.info(
-				`Overall Progress: ${allProfiles.processed}/${allProfiles.total} (${progress}%) ` +
-					`ETA: ${hours}h ${minutes}m | Success Rate: ${(((allProfiles.processed - allProfiles.failures) / allProfiles.processed) * 100).toFixed(1)}%`,
-			);
-		};
+		const batchSize = concurrency ? Math.max(1, concurrency) : CONFIG.concurrentRequests;
 
 		const processUrl = async (url: string) => {
 			try {
+				scraperUI.setCurrentUrl(url);
 				// Try cache first, but respect forceRefresh
 				const html = await parseProfileWithCache(
 					url,
 					type,
 					forceRefresh || !useCache, // Force refresh if forceRefresh is true or useCache is false
 				);
+				
+				if (!html) {
+					logger.warn(`Skipping ${url} due to fetch failure`);
+					scraperUI.incrementProgress({ failure: true });
+					return null;
+				}
+				
 				const $ = cheerio.load(html);
 				const result =
 					type === "idol"
 						? await parseIdolProfile($, url)
 						: await extractGroupData($, url, gender);
 
-				processed++;
-				updateGlobalProgress();
+				scraperUI.incrementProgress({ success: true });
 				return result;
 			} catch (error) {
-				allProfiles.failures++;
-				updateGlobalProgress();
+				scraperUI.incrementProgress({ failure: true });
 				logger.error(
 					`Failed to process ${url}: ${error instanceof Error ? error.message : String(error)}`,
 				);
@@ -1640,6 +2304,8 @@ async function scrapeProfiles(options: {
 
 			await delay(CONFIG.rateLimitDelay);
 		}
+
+		scraperUI.setCurrentUrl(null);
 
 		return results;
 	} catch (error) {
@@ -1736,29 +2402,26 @@ async function saveIncrementalProgress(
 	await saveDataset(existingData);
 }
 
-function logProgress(
-	processed: number,
-	total: number,
-	type: string,
-	url: string,
-): void {
-	const progress = ((processed / total) * 100).toFixed(1);
-	const elapsed = Date.now() - startTime;
-	const eta = Math.ceil(((elapsed / processed) * (total - processed)) / 1000);
-
-	logger.info(
-		`[${type}] Progress: ${processed}/${total} (${progress}%) ` +
-			`ETA: ${eta}s - ${url}`,
-	);
-}
-
 async function runDebugMode(options: {
 	sampleSize: number;
 	randomSamples: boolean;
 	batchSize: number;
 	delayBetweenBatches: number;
 	useCache: boolean;
+	offline: boolean;
 }): Promise<void> {
+	offlineMode = options.offline;
+	const concurrency = Math.max(1, options.batchSize);
+
+	let proxyPoolSize = 0;
+	if (!offlineMode) {
+		await proxyManager.initialize();
+		proxyPoolSize = proxyManager.getPoolSize();
+		scraperUI.setCurrentProxy(null);
+	} else {
+		proxyManager.reset();
+	}
+
 	const dataset: DataSet = {
 		femaleIdols: [],
 		maleIdols: [],
@@ -1768,6 +2431,16 @@ async function runDebugMode(options: {
 	};
 
 	logger.info("Starting debug mode scraping...");
+	scraperUI.startSession("debug", {
+		batchSize: options.batchSize,
+		delayBetweenBatches: options.delayBetweenBatches,
+		useCache: options.useCache,
+		forceRefresh: false,
+		offline: offlineMode,
+		sampleSize: options.sampleSize,
+		concurrency,
+		proxyPoolSize,
+	});
 
 	const categories = [
 		{ type: "group" as const, gender: "female" as const },
@@ -1777,39 +2450,43 @@ async function runDebugMode(options: {
 		{ type: "idol" as const, gender: "male" as const },
 	];
 
-	for (const category of categories) {
-		logger.info(`Scraping ${category.gender} ${category.type}s...`);
-		const profiles = await scrapeProfiles({
-			...category,
-			debug: true,
-			sampleSize: options.sampleSize,
-			useCache: options.useCache,
-		});
+	try {
+		for (const category of categories) {
+			logger.info(`Scraping ${category.gender} ${category.type}s...`);
+			const profiles = await scrapeProfiles({
+				...category,
+				debug: true,
+				sampleSize: options.sampleSize,
+				useCache: options.useCache,
+				concurrency,
+			});
 
-		if (category.type === "idol") {
-			if (category.gender === "female")
-				dataset.femaleIdols.push(...(profiles as Idol[]));
-			else dataset.maleIdols.push(...(profiles as Idol[]));
-		} else {
-			if (category.gender === "female")
-				dataset.girlGroups.push(...(profiles as Group[]));
-			else if (category.gender === "male")
-				dataset.boyGroups.push(...(profiles as Group[]));
-			else dataset.coedGroups.push(...(profiles as Group[]));
+			if (category.type === "idol") {
+				if (category.gender === "female")
+					dataset.femaleIdols.push(...(profiles as Idol[]));
+				else dataset.maleIdols.push(...(profiles as Idol[]));
+			} else {
+				if (category.gender === "female")
+					dataset.girlGroups.push(...(profiles as Group[]));
+				else if (category.gender === "male")
+					dataset.boyGroups.push(...(profiles as Group[]));
+				else dataset.coedGroups.push(...(profiles as Group[]));
+			}
+
+			if (!options.useCache && !offlineMode && options.delayBetweenBatches > 0) {
+				logger.info(
+					`Waiting ${options.delayBetweenBatches}ms before next category`,
+				);
+				await delay(options.delayBetweenBatches);
+			}
 		}
 
-		// Only apply delay if not using cache
-		if (!options.useCache) {
-			logger.info(
-				`Waiting ${options.delayBetweenBatches}ms before next category`,
-			);
-			await delay(options.delayBetweenBatches);
-		}
+		logger.info("Saving dataset...");
+		await saveDataset(dataset);
+		logger.success("Debug mode scraping completed");
+	} finally {
+		scraperUI.stop();
 	}
-
-	logger.info("Saving dataset...");
-	await saveDataset(dataset);
-	logger.success("Debug mode scraping completed");
 }
 
 function isInactiveStatus(statusText: string, content: string): boolean {

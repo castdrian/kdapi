@@ -39,6 +39,27 @@ export type SocialMedia = {
 	website?: string;
 };
 
+export type AttributeField = {
+	label: string;
+	value: string;
+	context?: string;
+};
+
+export type EntityStats = {
+	wins?: number;
+	pictures?: number;
+	videos?: number;
+	albums?: number;
+	views?: number;
+	favorites?: number;
+};
+
+export type FandomInfo = {
+	name?: string | null;
+	colors?: string[];
+	lightstick?: string | null;
+};
+
 export type Period = {
 	start: string;
 	end?: string;
@@ -104,11 +125,26 @@ export type PersonalInfo = {
 export type PhysicalInfo = {
 	birthDate?: string;
 	bloodType?: BloodType;
+	heightCm?: number;
+	weightKg?: number;
 };
 
 export type CareerInfo = {
 	debutDate?: string;
 	activeYears: Period[];
+};
+
+export type IdolProfile = {
+	positions?: string[];
+	representativeColors?: string[];
+	languages?: string[];
+	education?: string[];
+	nicknames?: string[];
+	trainingPeriod?: string | null;
+	debutToFirstWin?: string[];
+	rankings?: string[];
+	categories?: string[];
+	zodiacSign?: string | null;
 };
 
 //---------------------------
@@ -133,6 +169,11 @@ export interface Idol {
 	personalInfo?: PersonalInfo;
 	careerInfo?: CareerInfo;
 	groups?: GroupActivity[];
+	stats?: EntityStats;
+	profile?: IdolProfile;
+	fandom?: FandomInfo;
+	tags?: string[];
+	extraFields?: AttributeField[];
 }
 
 //---------------------------
@@ -150,7 +191,25 @@ export interface Group {
 	socialMedia?: SocialMedia;
 	memberHistory: MemberHistory;
 	groupInfo: GroupInfo;
+	stats?: EntityStats;
+	fandom?: FandomInfo;
+	country?: {
+		name: string;
+		code?: string;
+	};
+	profile?: GroupProfile;
+	tags?: string[];
+	extraFields?: AttributeField[];
 }
+
+export type GroupProfile = {
+	mainGroup?: string | null;
+	subgroups?: string[];
+	representativeColors?: string[];
+	mostPopularMember?: string | null;
+	debutToFirstWin?: string | null;
+	aliases?: string[];
+};
 
 //---------------------------
 // Dataset type
