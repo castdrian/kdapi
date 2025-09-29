@@ -50,7 +50,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Scrape for updates
-        if: inputs.skip_scrape != true
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.skip_scrape != 'true') }}
         id: scrape
         run: |
           bun run scrape:prod
