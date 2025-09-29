@@ -186,16 +186,28 @@ async function fetchWithRetry(url: string): Promise<string> {
 	const maxAttemptsPerProxy = 3; // Attempts per individual proxy
 	let currentProxy: ProxyConfig | null = null;
 	let triedDirectConnection = false;
-	
+
 	// First, try all available proxies
-	while (proxyManager.hasWorkingProxies()) {
+	while (true) {
+		if (!proxyManager.hasWorkingProxies()) {
+			const cooldownWait = proxyManager.getNextCooldownDuration();
+			if (cooldownWait !== null) {
+				logger.warn(
+					`All proxies are cooling down. Waiting ${Math.ceil(cooldownWait / 1000)}s before retrying`,
+				);
+				await delay(cooldownWait);
+				continue;
+			}
+			break;
+		}
+
 		currentProxy = proxyManager.getCurrentProxy();
 		if (!currentProxy) break;
-		
+
 		logger.info(`Fetching ${url} via proxy ${currentProxy.host}:${currentProxy.port}`);
-		
+
 		// Try this proxy with limited attempts
-		let proxySuccess = false;
+		let proxyRateLimited = false;
 		for (let attempt = 0; attempt < maxAttemptsPerProxy; attempt++) {
 			try {
 				if (attempt > 0) {
@@ -243,12 +255,21 @@ async function fetchWithRetry(url: string): Promise<string> {
 
 				if (response.status === 429) {
 					const retryAfter = response.headers.get("Retry-After");
-					const delay = retryAfter
-						? Number.parseInt(retryAfter) * 1000
+					const retryAfterSeconds = retryAfter
+						? Number.parseInt(retryAfter, 10)
+						: Number.NaN;
+					const cooldownMs = Number.isFinite(retryAfterSeconds)
+						? retryAfterSeconds * 1000
 						: CONFIG.retryDelay * 1.5 ** attempt;
-					logger.warn(`Rate limited, waiting ${delay}ms`);
-					await new Promise((resolve) => setTimeout(resolve, delay));
-					continue; // Try again with same proxy after rate limit wait
+					const sanitizedCooldown = Number.isFinite(cooldownMs)
+						? Math.max(cooldownMs, 1000)
+						: 5000;
+					logger.warn(
+						`Proxy ${currentProxy.host}:${currentProxy.port} hit rate limit. Rotating proxy (cooldown ${Math.ceil(sanitizedCooldown / 1000)}s)`,
+					);
+					proxyManager.markProxyAsRateLimited(currentProxy, sanitizedCooldown);
+					proxyRateLimited = true;
+					break;
 				}
 
 				if (response.status === 403) {
@@ -284,8 +305,12 @@ async function fetchWithRetry(url: string): Promise<string> {
 				// For other errors, continue attempts with this proxy
 			}
 		}
-		
+
 		// Mark this proxy as failed and try next one
+		if (proxyRateLimited) {
+			continue;
+		}
+
 		logger.warn(`Proxy ${currentProxy.host}:${currentProxy.port} failed after ${maxAttemptsPerProxy} attempts, trying next proxy`);
 		proxyManager.markProxyAsFailed(currentProxy);
 	}

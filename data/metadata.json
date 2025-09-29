@@ -1,9 +1,9 @@
 {
-  "lastUpdated": "2025-09-28T18:45:52.142Z",
+  "lastUpdated": "2025-09-29T13:53:43.873Z",
   "version": "0.1.0",
   "coverage": {
-    "startDate": "",
-    "endDate": "2025-09-28"
+    "startDate": "1999-08-03",
+    "endDate": "2025-09-29"
   },
   "stats": {
     "groups": {
@@ -20,16 +20,16 @@
       }
     },
     "idols": {
-      "total": 0,
+      "total": 140,
       "active": {
-        "female": 0,
+        "female": 117,
         "male": 0
       },
       "inactive": {
-        "female": 0,
+        "female": 23,
         "male": 0
       }
     },
-    "total": 0
+    "total": 140
   }
 }

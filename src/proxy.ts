@@ -10,6 +10,7 @@ export class ProxyManager {
 	private proxies: ProxyConfig[] = [];
 	private currentIndex = 0;
 	private failedProxies = new Set<string>();
+	private proxyCooldowns = new Map<string, number>();
 	
 	private readonly PROXY_LISTS = {
 		http: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
@@ -100,47 +101,114 @@ export class ProxyManager {
 		}
 	}
 
+	private getProxyKey(proxy: ProxyConfig): string {
+		return `${proxy.host}:${proxy.port}`;
+	}
+
 	getCurrentProxy(): ProxyConfig | null {
 		if (this.proxies.length === 0) {
 			return null;
 		}
 
-		// Find next working proxy
-		const startIndex = this.currentIndex;
-		do {
-			const proxy = this.proxies[this.currentIndex];
+		const total = this.proxies.length;
+		const now = Date.now();
+
+		for (let offset = 0; offset < total; offset++) {
+			const index = (this.currentIndex + offset) % total;
+			const proxy = this.proxies[index];
 			if (!proxy) {
-				this.currentIndex = (this.currentIndex + 1) % this.proxies.length;
 				continue;
 			}
-			
-			const proxyKey = `${proxy.host}:${proxy.port}`;
-			
-			if (!this.failedProxies.has(proxyKey)) {
-				return proxy;
+
+			const proxyKey = this.getProxyKey(proxy);
+			if (this.failedProxies.has(proxyKey)) {
+				continue;
 			}
 
-			this.currentIndex = (this.currentIndex + 1) % this.proxies.length;
-		} while (this.currentIndex !== startIndex);
+			const cooldownUntil = this.proxyCooldowns.get(proxyKey);
+			if (cooldownUntil) {
+				if (cooldownUntil <= now) {
+					this.proxyCooldowns.delete(proxyKey);
+				} else {
+					continue;
+				}
+			}
 
-		return null; // All proxies have failed
+			this.currentIndex = index;
+			return proxy;
+		}
+
+		return null;
 	}
 
 	markProxyAsFailed(proxy: ProxyConfig): void {
-		const proxyKey = `${proxy.host}:${proxy.port}`;
+		if (this.proxies.length === 0) {
+			return;
+		}
+
+		const proxyKey = this.getProxyKey(proxy);
 		this.failedProxies.add(proxyKey);
+		this.proxyCooldowns.delete(proxyKey);
 		console.log(`[PROXY] Marked proxy as failed: ${proxyKey}`);
-		
-		// Move to next proxy
 		this.rotateProxy();
 	}
 
+	markProxyAsRateLimited(proxy: ProxyConfig, cooldownMs: number): void {
+		if (this.proxies.length === 0) {
+			return;
+		}
+
+		const proxyKey = this.getProxyKey(proxy);
+		const cooldown = Math.max(cooldownMs, 1000);
+		this.proxyCooldowns.set(proxyKey, Date.now() + cooldown);
+		console.log(
+			`[PROXY] Proxy ${proxyKey} rate limited. Cooling down for ${Math.ceil(cooldown / 1000)}s`,
+		);
+		this.rotateProxy();
+	}
+
+	getNextCooldownDuration(): number | null {
+		if (this.proxyCooldowns.size === 0) {
+			return null;
+		}
+
+		const now = Date.now();
+		let soonest: number | null = null;
+
+		for (const until of this.proxyCooldowns.values()) {
+			const remaining = until - now;
+			if (remaining <= 0) {
+				continue;
+			}
+			if (soonest === null || remaining < soonest) {
+				soonest = remaining;
+			}
+		}
+
+		return soonest;
+	}
+
 	rotateProxy(): void {
+		if (this.proxies.length === 0) {
+			return;
+		}
+
 		this.currentIndex = (this.currentIndex + 1) % this.proxies.length;
 	}
 
 	getWorkingProxyCount(): number {
-		return this.proxies.length - this.failedProxies.size;
+		const now = Date.now();
+		return this.proxies.reduce((count, proxy) => {
+			const proxyKey = this.getProxyKey(proxy);
+			if (this.failedProxies.has(proxyKey)) {
+				return count;
+			}
+			const cooldownUntil = this.proxyCooldowns.get(proxyKey);
+			if (cooldownUntil && cooldownUntil > now) {
+				return count;
+			}
+			return count + 1;
+		}, 0);
 	}
 
 	hasWorkingProxies(): boolean {
@@ -149,6 +217,7 @@ export class ProxyManager {
 
 	reset(): void {
 		this.failedProxies.clear();
+		this.proxyCooldowns.clear();
 		this.currentIndex = 0;
 		this.shuffleProxies();
 		console.log("[PROXY] Reset failed proxies list");
