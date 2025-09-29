@@ -5,7 +5,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '0 0 1 * *'  # Run monthly
+    - cron: '0 0 1 * *'
   workflow_dispatch:
     inputs:
       skip_scrape:
@@ -63,7 +63,6 @@ jobs:
 
       - name: Bump version and commit
         if: |
-          github.event_name == 'push' ||
           steps.scrape.outputs.has_changes == 'true' ||
           (github.event_name == 'workflow_dispatch' && inputs.force_release == 'true')
         run: |
