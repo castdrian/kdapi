@@ -21,6 +21,11 @@ program
 	.option("--batch-size <number>", "Batch size for requests", "5")
 	.option("--no-cache", "Disable using cached HTML files")
 	.option("--force", "Force refresh all profiles", false)
+	.option(
+		"--cache-only",
+		"Use only cached HTML files and skip all network requests",
+		false,
+	)
 	.action(async (options) => {
 		// Create cache directories
 		const dirs = [
@@ -35,7 +40,14 @@ program
 			}
 		}
 
-		const useCache = options.cache && !options.force;
+		const offline = Boolean(options.cacheOnly);
+		const forceRefresh = offline ? false : options.force;
+		const useCache = offline ? true : options.cache && !forceRefresh;
+		if (offline && options.force) {
+			console.log(
+				"⚠️  Ignoring --force because --cache-only was provided (offline mode)",
+			);
+		}
 
 		console.log(
 			`Running with options: ${JSON.stringify(
@@ -45,7 +57,8 @@ program
 					batchSize: options.batchSize,
 					delay: options.delay,
 					useCache: useCache,
-					forceRefresh: options.force,
+					forceRefresh,
+					offline,
 				},
 				null,
 				2,
@@ -64,14 +77,16 @@ program
 					randomSamples: true,
 					batchSize: Number.parseInt(options.batchSize),
 					delayBetweenBatches: Number.parseInt(options.delay),
-					useCache: useCache,
+					useCache,
+					offline,
 				});
 			} else {
 				await runProductionMode({
 					batchSize: Number.parseInt(options.batchSize),
 					delayBetweenBatches: Number.parseInt(options.delay),
-					useCache: useCache,
-					forceRefresh: options.force,
+					useCache,
+					forceRefresh,
+					offline,
 				});
 			}
 			console.log("✅ Scraping completed successfully");

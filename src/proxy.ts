@@ -1,4 +1,5 @@
 import { fetch } from "undici";
+import { logger } from "@src/logger";
 
 export interface ProxyConfig {
 	host: string;
@@ -11,6 +12,7 @@ export class ProxyManager {
 	private currentIndex = 0;
 	private failedProxies = new Set<string>();
 	private proxyCooldowns = new Map<string, number>();
+	private proxyFailureCounts = new Map<string, number>();
 	
 	private readonly PROXY_LISTS = {
 		http: "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
@@ -19,7 +21,7 @@ export class ProxyManager {
 	};
 
 	async initialize(): Promise<void> {
-		console.log("[PROXY] Initializing proxy manager...");
+		logger.info("[PROXY] Initializing proxy manager");
 		try {
 			// Try to fetch proxies from all lists with timeout
 			const proxyListPromises = [
@@ -42,16 +44,18 @@ export class ProxyManager {
 			}
 
 			if (this.proxies.length === 0) {
-				console.warn("[PROXY] No proxies loaded, will use direct connection");
+				logger.warn("[PROXY] No proxies loaded, will rely on direct connection");
 				return;
 			}
 
-			// Shuffle proxies for random selection
-			this.shuffleProxies();
-			console.log(`[PROXY] Loaded ${this.proxies.length} proxies`);
-		} catch (error) {
-			console.warn("[PROXY] Failed to initialize proxies, continuing with direct connection:", error);
-		}
+				// Shuffle proxies for random selection
+				this.shuffleProxies();
+				logger.info(`[PROXY] Loaded ${this.proxies.length} proxies`);
+			} catch (error) {
+				logger.warn(
+					`[PROXY] Failed to initialize proxies, continuing with direct connection: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
 	}
 
 	private async fetchProxyList(type: keyof typeof this.PROXY_LISTS): Promise<ProxyConfig[]> {
@@ -85,7 +89,9 @@ export class ProxyManager {
 				return null;
 			}).filter((proxy): proxy is ProxyConfig => proxy !== null);
 		} catch (error) {
-			console.warn(`[PROXY] Failed to fetch ${type} proxies:`, error);
+			logger.warn(
+				`[PROXY] Failed to fetch ${type} proxies: ${error instanceof Error ? error.message : String(error)}`,
+			);
 			return [];
 		}
 	}
@@ -103,6 +109,34 @@ export class ProxyManager {
 
 	private getProxyKey(proxy: ProxyConfig): string {
 		return `${proxy.host}:${proxy.port}`;
+	}
+
+	private sameProxy(a: ProxyConfig, b: ProxyConfig): boolean {
+		return a.host === b.host && a.port === b.port && a.protocol === b.protocol;
+	}
+
+	private moveProxyToEnd(proxy: ProxyConfig): void {
+		if (this.proxies.length <= 1) {
+			return;
+		}
+
+		const index = this.proxies.findIndex((p) => this.sameProxy(p, proxy));
+		if (index === -1) {
+			return;
+		}
+
+		const [entry] = this.proxies.splice(index, 1);
+		if (!entry) {
+			return;
+		}
+		this.proxies.push(entry);
+
+		if (this.currentIndex > index) {
+			this.currentIndex -= 1;
+		}
+		if (this.currentIndex >= this.proxies.length) {
+			this.currentIndex = 0;
+		}
 	}
 
 	getCurrentProxy(): ProxyConfig | null {
@@ -149,34 +183,46 @@ export class ProxyManager {
 		const proxyKey = this.getProxyKey(proxy);
 		this.failedProxies.add(proxyKey);
 		this.proxyCooldowns.delete(proxyKey);
-		console.log(`[PROXY] Marked proxy as failed: ${proxyKey}`);
-		this.rotateProxy();
+		logger.warn(`[PROXY] Marked proxy as failed: ${proxyKey}`);
+		this.moveProxyToEnd(proxy);
 	}
 
-	markProxyAsRateLimited(proxy: ProxyConfig, cooldownMs: number): void {
-		this.setProxyCooldown(proxy, cooldownMs, "rate limited");
+	markProxyAsRateLimited(proxy: ProxyConfig, cooldownMs: number): number {
+		return this.setProxyCooldown(proxy, cooldownMs, "rate limited");
 	}
 
-	markProxyAsTemporarilyFailed(proxy: ProxyConfig, cooldownMs: number): void {
-		this.setProxyCooldown(proxy, cooldownMs, "encountered an error");
+	markProxyAsTemporarilyFailed(proxy: ProxyConfig, cooldownMs: number): number {
+		return this.setProxyCooldown(proxy, cooldownMs, "encountered an error");
+	}
+
+	markProxyAsSuccessful(proxy: ProxyConfig): void {
+		const proxyKey = this.getProxyKey(proxy);
+		this.proxyCooldowns.delete(proxyKey);
+		this.proxyFailureCounts.delete(proxyKey);
+		this.moveProxyToEnd(proxy);
 	}
 
 	private setProxyCooldown(
 		proxy: ProxyConfig,
 		cooldownMs: number,
 		reason: string,
-	): void {
+	): number {
 		if (this.proxies.length === 0) {
-			return;
+			return 0;
 		}
 
 		const proxyKey = this.getProxyKey(proxy);
-		const cooldown = Math.max(cooldownMs, 1000);
-		this.proxyCooldowns.set(proxyKey, Date.now() + cooldown);
-		console.log(
-			`[PROXY] Proxy ${proxyKey} ${reason}. Cooling down for ${Math.ceil(cooldown / 1000)}s`,
+		const failures = (this.proxyFailureCounts.get(proxyKey) || 0) + 1;
+		this.proxyFailureCounts.set(proxyKey, failures);
+		const scaled = Math.min(Math.max(cooldownMs, 1000) * failures, 60000);
+		this.proxyCooldowns.set(proxyKey, Date.now() + scaled);
+		logger.warn(
+			`[PROXY] Proxy ${proxyKey} ${reason}. Cooling down for ${Math.ceil(
+				scaled / 1000,
+			)}s (failures: ${failures})`,
 		);
-		this.rotateProxy();
+		this.moveProxyToEnd(proxy);
+		return scaled;
 	}
 
 	getNextCooldownDuration(): number | null {
@@ -200,14 +246,6 @@ export class ProxyManager {
 		return soonest;
 	}
 
-	rotateProxy(): void {
-		if (this.proxies.length === 0) {
-			return;
-		}
-
-		this.currentIndex = (this.currentIndex + 1) % this.proxies.length;
-	}
-
 	getWorkingProxyCount(): number {
 		const now = Date.now();
 		return this.proxies.reduce((count, proxy) => {
@@ -227,11 +265,16 @@ export class ProxyManager {
 		return this.getWorkingProxyCount() > 0;
 	}
 
+	getPoolSize(): number {
+		return this.proxies.length;
+	}
+
 	reset(): void {
 		this.failedProxies.clear();
 		this.proxyCooldowns.clear();
+		this.proxyFailureCounts.clear();
 		this.currentIndex = 0;
 		this.shuffleProxies();
-		console.log("[PROXY] Reset failed proxies list");
+		logger.info("[PROXY] Reset failed proxies list");
 	}
 }
