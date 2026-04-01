@@ -1,17 +1,17 @@
 {
-  "lastUpdated": "2026-03-01T00:23:55.027Z",
+  "lastUpdated": "2026-04-01T00:18:15.708Z",
   "version": "0.1.0",
   "coverage": {
     "startDate": "1933-01-01",
-    "endDate": "2026-03-01"
+    "endDate": "2026-04-01"
   },
   "stats": {
     "groups": {
-      "total": 2727,
+      "total": 2729,
       "active": {
         "girl": 718,
-        "boy": 706,
-        "coed": 519
+        "boy": 707,
+        "coed": 520
       },
       "disbanded": {
         "girl": 508,
@@ -20,16 +20,16 @@
       }
     },
     "idols": {
-      "total": 10503,
+      "total": 10506,
       "active": {
-        "female": 5185,
-        "male": 4173
+        "female": 5186,
+        "male": 4175
       },
       "inactive": {
         "female": 779,
         "male": 366
       }
     },
-    "total": 13230
+    "total": 13235
   }
 }
