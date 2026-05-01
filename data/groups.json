@@ -8492,7 +8492,7 @@
       "id": "9c4bda15-ee59-4841-883c-74799e4d8a54",
       "type": "girl",
       "profileUrl": "https://kpopping.com/profiles/group/BABYMONSTER",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/BABYMONSTER/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/BABYMONSTER/profile.jpg?v=1776188137348",
       "active": true,
       "status": "active",
       "company": {
@@ -10253,7 +10253,7 @@
       "id": "7610e27f-4a8a-4e67-a0e7-4d6f8c9e5f20",
       "type": "girl",
       "profileUrl": "https://kpopping.com/profiles/group/Burvey",
-      "imageUrl": "",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Burvey/profile.webp",
       "active": true,
       "status": "active",
       "company": {
@@ -10263,7 +10263,7 @@
         "debutDate": null,
         "disbandmentDate": null,
         "names": {
-          "stage": "",
+          "stage": "Burvey",
           "korean": null,
           "japanese": null,
           "chinese": null
@@ -11991,7 +11991,7 @@
       "id": "bd4f65ec-d483-4754-856c-081ca5089eda",
       "type": "girl",
       "profileUrl": "https://kpopping.com/profiles/group/Dalshabet",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Dalshabet/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Dalshabet/profile.jpg?v=1775579404231",
       "active": true,
       "status": "active",
       "company": {
@@ -56709,278 +56709,23 @@
       "id": "df30dcff-f398-4b41-bca5-029d55a7c00a",
       "type": "girl",
       "profileUrl": "https://kpopping.com/profiles/group/LE-SSERAFIM",
-      "imageUrl": "https://kpopping.com/documents/3d/4/social-widget/LE-SSERAFIM-fullPicture(38).webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/LE-SSERAFIM/profile.jpg?v=1777486261090",
       "active": true,
       "status": "active",
       "company": {
-        "current": "Source Music",
-        "history": [
-          {
-            "name": "EMI Records",
-            "period": {
-              "start": "2022-05-02"
-            }
-          },
-          {
-            "name": "Source Music",
-            "period": {
-              "start": "2022-03-25"
-            }
-          }
-        ]
-      },
-      "socialMedia": {
-        "facebook": "https://www.facebook.com/official.lesserafim",
-        "twitter": "https://twitter.com/le_sserafim",
-        "instagram": "https://www.instagram.com/le_sserafim/",
-        "youtube": "https://www.youtube.com/channel/UCs-QBT4qkj_YiQw1ZntDO3g",
-        "tiktok": "https://www.tiktok.com/@le_sserafim",
-        "spotify": "https://open.spotify.com/artist/4SpbR6yFEvexJuaBpgAU5p",
-        "website": "https://le-sserafim.com/",
-        "weibo": "https://weibo.com/LESSERAFIM"
-      },
-      "memberHistory": {
-        "currentMembers": [
-          {
-            "name": "Sakura",
-            "profileUrl": "https://kpopping.com/profiles/idol/Sakura",
-            "id": "c879ea56-98ae-4b47-99f7-02abd3c4e71c"
-          },
-          {
-            "name": "Kim Chaewon",
-            "profileUrl": "https://kpopping.com/profiles/idol/Kim-Chaewon",
-            "id": "4608ea55-a6c0-4b10-b186-fd52d57aebdd"
-          },
-          {
-            "name": "Huh Yunjin",
-            "profileUrl": "https://kpopping.com/profiles/idol/Huh-Yunjin",
-            "id": "b8b243ac-0584-4085-9b50-4c36f87b39d0"
-          },
-          {
-            "name": "Kazuha",
-            "profileUrl": "https://kpopping.com/profiles/idol/Kazuha",
-            "id": "a1574321-42bc-4125-aac5-0b41908ab450"
-          },
-          {
-            "name": "Hong Eunchae",
-            "profileUrl": "https://kpopping.com/profiles/idol/Hong-Eunchae",
-            "id": "2c43ad11-f31d-4b50-9d25-13bab9af1e77"
-          },
-          {
-            "name": "Kim Garam",
-            "profileUrl": "https://kpopping.com/profiles/idol/Kim-Garam",
-            "id": "256e166c-23d3-4438-86cb-c79620aafb00"
-          }
-        ],
-        "formerMembers": [
-          {
-            "name": "Kim Garam",
-            "profileUrl": "https://kpopping.com/profiles/idol/Kim-Garam",
-            "id": "256e166c-23d3-4438-86cb-c79620aafb00"
-          }
-        ]
+        "current": null
       },
       "groupInfo": {
-        "debutDate": "2022-05-02",
+        "debutDate": null,
         "disbandmentDate": null,
         "names": {
           "stage": "LE SSERAFIM",
-          "korean": "르세라핌",
-          "japanese": "ルセラフィム",
+          "korean": null,
+          "japanese": null,
           "chinese": null
         },
-        "fandomName": "FEARNOT"
-      },
-      "stats": {
-        "wins": 36,
-        "pictures": 8700,
-        "videos": 249,
-        "albums": 36,
-        "views": 898100,
-        "favorites": 1400
-      },
-      "tags": [
-        "Kpop groups debuted in 2022",
-        "Kpop groups debut till 1st win",
-        "Female idols",
-        "Girl groups",
-        "Kpop groups with the most YouTube subscribers",
-        "4th generation kpop groups",
-        "Kpop groups ranking"
-      ],
-      "fandom": {
-        "name": "FEARNOT"
-      },
-      "extraFields": [
-        {
-          "label": "Birthday",
-          "value": "Mar 19, 1998"
-        },
-        {
-          "label": "Age",
-          "value": "27 years old"
-        },
-        {
-          "label": "Birthplace",
-          "value": "Kagoshima City, Kagoshima Japan"
-        },
-        {
-          "label": "Height",
-          "value": "5'4\" (163 cm)"
-        },
-        {
-          "label": "Weight",
-          "value": "92.6 lbs (42 kg)"
-        },
-        {
-          "label": "Zodiac-sign",
-          "value": "Pisces"
-        },
-        {
-          "label": "Blood type",
-          "value": "A"
-        },
-        {
-          "label": "MBTI",
-          "value": "INTP"
-        },
-        {
-          "label": "Birthday",
-          "value": "Aug 1, 2000"
-        },
-        {
-          "label": "Age",
-          "value": "25 years old"
-        },
-        {
-          "label": "Birthplace",
-          "value": "Gaepo-dong, Gangnam-gu, Seoul South Korea"
-        },
-        {
-          "label": "Height",
-          "value": "5'5\" (164 cm)"
-        },
-        {
-          "label": "Weight",
-          "value": "92.6 lbs (42 kg)"
-        },
-        {
-          "label": "Zodiac-sign",
-          "value": "Leo"
-        },
-        {
-          "label": "Blood type",
-          "value": "B"
-        },
-        {
-          "label": "MBTI",
-          "value": "ESTP"
-        },
-        {
-          "label": "Position",
-          "value": "Leader"
-        },
-        {
-          "label": "Birthday",
-          "value": "Oct 8, 2001"
-        },
-        {
-          "label": "Age",
-          "value": "24 years old"
-        },
-        {
-          "label": "Birthplace",
-          "value": "Irwon-dong, Gangnam-gu, Seoul South Korea"
-        },
-        {
-          "label": "Height",
-          "value": "5'8\" (172 cm)"
-        },
-        {
-          "label": "Weight",
-          "value": "116.8 lbs (53 kg)"
-        },
-        {
-          "label": "Zodiac-sign",
-          "value": "Libra"
-        },
-        {
-          "label": "Blood type",
-          "value": "B"
-        },
-        {
-          "label": "MBTI",
-          "value": "ENFJ"
-        },
-        {
-          "label": "Birthday",
-          "value": "Aug 9, 2003"
-        },
-        {
-          "label": "Age",
-          "value": "22 years old"
-        },
-        {
-          "label": "Birthplace",
-          "value": "Kochi City, Kochi Prefecture Japan"
-        },
-        {
-          "label": "Height",
-          "value": "5'7\" (170 cm)"
-        },
-        {
-          "label": "Weight",
-          "value": "105.8 lbs (48 kg)"
-        },
-        {
-          "label": "Zodiac-sign",
-          "value": "Leo"
-        },
-        {
-          "label": "Blood type",
-          "value": "A"
-        },
-        {
-          "label": "MBTI",
-          "value": "INFJ"
-        },
-        {
-          "label": "Birthday",
-          "value": "Nov 10, 2006"
-        },
-        {
-          "label": "Age",
-          "value": "19 years old"
-        },
-        {
-          "label": "Birthplace",
-          "value": "Seoul South Korea"
-        },
-        {
-          "label": "Height",
-          "value": "5'7\" (170 cm)"
-        },
-        {
-          "label": "Weight",
-          "value": "101.4 lbs (46 kg)"
-        },
-        {
-          "label": "Zodiac-sign",
-          "value": "Scorpio"
-        },
-        {
-          "label": "Blood type",
-          "value": "A"
-        },
-        {
-          "label": "MBTI",
-          "value": "ISTJ"
-        },
-        {
-          "label": "Position",
-          "value": "Maknae"
-        }
-      ]
+        "fandomName": null
+      }
     },
     {
       "id": "7581316b-1f5d-4159-ac74-1248473b6792",
@@ -144457,7 +144202,7 @@
       "id": "09af1d90-d925-47a0-bfa5-725d22b043c4",
       "type": "girl",
       "profileUrl": "https://kpopping.com/profiles/group/CORTIS",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/CORTIS/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/CORTIS/profile.jpg?v=1776388774240",
       "active": true,
       "status": "active",
       "company": {
@@ -147295,7 +147040,7 @@
       "id": "c6ebca6b-b662-4db3-8ee4-2bab70dea493",
       "type": "girl",
       "profileUrl": "https://kpopping.com/profiles/group/CRAVITY",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/CRAVITY/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/CRAVITY/profile.jpg?v=1777284682084",
       "active": true,
       "status": "active",
       "company": {
@@ -147361,7 +147106,7 @@
       "id": "5648db1c-de6d-4f53-aa3b-445f9677dae9",
       "type": "girl",
       "profileUrl": "https://kpopping.com/profiles/group/Cross-Gene",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Cross-Gene/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Cross-Gene/profile.jpg?v=1775910710169",
       "active": true,
       "status": "active",
       "company": {
@@ -148230,6 +147975,182 @@
         "disbandmentDate": null,
         "names": {
           "stage": "Dynamic Duo",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "8266a4c7-260a-42e7-b7e6-819a8617ee98",
+      "type": "girl",
+      "profileUrl": "https://kpopping.com/profiles/group/unchild",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/unchild/profile.jpg?v=1775839244194",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "UNCHILD",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "1cec7f41-16c6-40e8-b00c-ad21eec2e62c",
+      "type": "girl",
+      "profileUrl": "https://kpopping.com/profiles/group/allhours",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/ALL-H-OURS/profile.webp",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "ALL",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "c59d20a3-f381-4f97-85ed-f8ce97f53e20",
+      "type": "girl",
+      "profileUrl": "https://kpopping.com/profiles/group/and2ble",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/and2ble/profile.jpg?v=1775469551592",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "AND2BLE",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "3d7a70be-2287-4cd9-b1b3-3f53067ba9c8",
+      "type": "girl",
+      "profileUrl": "https://kpopping.com/profiles/group/appleb",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Apple-B/profile.webp",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "Apple.B",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "6dcbbfc6-6d07-41f8-bca6-181101c07440",
+      "type": "girl",
+      "profileUrl": "https://kpopping.com/profiles/group/baby-vox",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/BABY-V-O-X/profile.webp",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "BABY V.O.X",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "26edfdd8-9fd8-47c6-8f42-f40f7d637bea",
+      "type": "girl",
+      "profileUrl": "https://kpopping.com/profiles/group/bemax",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Be-MAX/profile.webp",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "BE:MAX",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "0d7de38f-3d60-4a1a-9009-172df23e1ce7",
+      "type": "girl",
+      "profileUrl": "https://kpopping.com/profiles/group/boyfriend",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/BF/profile.jpg?v=1775203765164",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "BOYFRIEND",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "b3cf5f45-c5cc-4162-ac62-98a59add900c",
+      "type": "girl",
+      "profileUrl": "https://kpopping.com/profiles/group/choco12",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/ChoCo1-2/profile.jpg",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "ChoCo1&2",
           "korean": null,
           "japanese": null,
           "chinese": null
@@ -157071,7 +156992,7 @@
       "id": "c6976595-5d11-4f73-ac8f-2ce563ea2e7c",
       "type": "boy",
       "profileUrl": "https://kpopping.com/profiles/group/CORTIS",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/CORTIS/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/CORTIS/profile.jpg?v=1776388774240",
       "active": true,
       "status": "active",
       "company": {
@@ -157137,7 +157058,7 @@
       "id": "594189db-ec72-4cb7-9d95-855ae5374a1a",
       "type": "boy",
       "profileUrl": "https://kpopping.com/profiles/group/CRAVITY",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/CRAVITY/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/CRAVITY/profile.jpg?v=1777284682084",
       "active": true,
       "status": "active",
       "company": {
@@ -157203,7 +157124,7 @@
       "id": "05bdf7ad-e7fb-45be-9959-43404d9b5f91",
       "type": "boy",
       "profileUrl": "https://kpopping.com/profiles/group/Cross-Gene",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Cross-Gene/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Cross-Gene/profile.jpg?v=1775910710169",
       "active": true,
       "status": "active",
       "company": {
@@ -254294,7 +254215,7 @@
       "id": "4c6d57df-1900-4032-80a5-c0954c08c437",
       "type": "boy",
       "profileUrl": "https://kpopping.com/profiles/group/BABYMONSTER",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/BABYMONSTER/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/BABYMONSTER/profile.jpg?v=1776188137348",
       "active": true,
       "status": "active",
       "company": {
@@ -258738,7 +258659,7 @@
       "id": "a6c26126-7189-4813-b817-3e6e86194faf",
       "type": "boy",
       "profileUrl": "https://kpopping.com/profiles/group/Burvey",
-      "imageUrl": "",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Burvey/profile.webp",
       "active": true,
       "status": "active",
       "company": {
@@ -258748,7 +258669,7 @@
         "debutDate": null,
         "disbandmentDate": null,
         "names": {
-          "stage": "",
+          "stage": "Burvey",
           "korean": null,
           "japanese": null,
           "chinese": null
@@ -260784,7 +260705,7 @@
       "id": "c5eaac24-e803-4ea8-addf-36cb4e2d884f",
       "type": "boy",
       "profileUrl": "https://kpopping.com/profiles/group/Dalshabet",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Dalshabet/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Dalshabet/profile.jpg?v=1775579404231",
       "active": true,
       "status": "active",
       "company": {
@@ -261631,6 +261552,204 @@
         "disbandmentDate": null,
         "names": {
           "stage": "Hearts2Hearts",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "dbdd4078-339a-4531-a953-72b2d5b1139c",
+      "type": "boy",
+      "profileUrl": "https://kpopping.com/profiles/group/unchild",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/unchild/profile.jpg?v=1775839244194",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "UNCHILD",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "e63b624e-08f1-4a79-b045-8d572abc128f",
+      "type": "boy",
+      "profileUrl": "https://kpopping.com/profiles/group/LE-SSERAFIM",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/LE-SSERAFIM/profile.jpg?v=1777486261090",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "LE SSERAFIM",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "e83081d5-5053-49ea-9b33-04386f473fe4",
+      "type": "boy",
+      "profileUrl": "https://kpopping.com/profiles/group/allhours",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/ALL-H-OURS/profile.webp",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "ALL",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "bbc264fe-4d28-4dcf-9c49-354da7a1030f",
+      "type": "boy",
+      "profileUrl": "https://kpopping.com/profiles/group/and2ble",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/and2ble/profile.jpg?v=1775469551592",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "AND2BLE",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "fc217168-78e2-4378-bed0-c51eff37f467",
+      "type": "boy",
+      "profileUrl": "https://kpopping.com/profiles/group/appleb",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Apple-B/profile.webp",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "Apple.B",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "e8c81677-557b-497d-acbe-c06357ec6871",
+      "type": "boy",
+      "profileUrl": "https://kpopping.com/profiles/group/baby-vox",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/BABY-V-O-X/profile.webp",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "BABY V.O.X",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "b7d3eb42-78db-478b-9ed6-5a3f0127df95",
+      "type": "boy",
+      "profileUrl": "https://kpopping.com/profiles/group/bemax",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Be-MAX/profile.webp",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "BE:MAX",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "4bfb46d2-9311-4ded-b4b5-094e0c997436",
+      "type": "boy",
+      "profileUrl": "https://kpopping.com/profiles/group/boyfriend",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/BF/profile.jpg?v=1775203765164",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "BOYFRIEND",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "64f61c30-1bf7-4879-8980-12fa04207212",
+      "type": "boy",
+      "profileUrl": "https://kpopping.com/profiles/group/choco12",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/ChoCo1-2/profile.jpg",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "ChoCo1&2",
           "korean": null,
           "japanese": null,
           "chinese": null
@@ -279039,7 +279158,7 @@
       "id": "5e3a6162-b2e0-4984-ab56-91af1d4d0edc",
       "type": "coed",
       "profileUrl": "https://kpopping.com/profiles/group/BABYMONSTER",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/BABYMONSTER/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/BABYMONSTER/profile.jpg?v=1776188137348",
       "active": true,
       "status": "active",
       "company": {
@@ -279061,7 +279180,7 @@
       "id": "fc872742-c608-44cf-bc7b-c68c292d0878",
       "type": "coed",
       "profileUrl": "https://kpopping.com/profiles/group/CORTIS",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/CORTIS/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/CORTIS/profile.jpg?v=1776388774240",
       "active": true,
       "status": "active",
       "company": {
@@ -285045,7 +285164,7 @@
       "id": "d797eab5-4765-4ed4-a192-1f145f5232c4",
       "type": "coed",
       "profileUrl": "https://kpopping.com/profiles/group/Burvey",
-      "imageUrl": "",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Burvey/profile.webp",
       "active": true,
       "status": "active",
       "company": {
@@ -285055,7 +285174,7 @@
         "debutDate": null,
         "disbandmentDate": null,
         "names": {
-          "stage": "",
+          "stage": "Burvey",
           "korean": null,
           "japanese": null,
           "chinese": null
@@ -286827,7 +286946,7 @@
       "id": "f2033ed3-ff7f-4c4f-bcad-91607831a093",
       "type": "coed",
       "profileUrl": "https://kpopping.com/profiles/group/CRAVITY",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/CRAVITY/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/CRAVITY/profile.jpg?v=1777284682084",
       "active": true,
       "status": "active",
       "company": {
@@ -286959,7 +287078,7 @@
       "id": "fc5c19b2-0b63-4427-8582-8a92c9f934db",
       "type": "coed",
       "profileUrl": "https://kpopping.com/profiles/group/Cross-Gene",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Cross-Gene/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Cross-Gene/profile.jpg?v=1775910710169",
       "active": true,
       "status": "active",
       "company": {
@@ -287553,7 +287672,7 @@
       "id": "7484c711-2e1d-4a99-9f14-fe749caa2185",
       "type": "coed",
       "profileUrl": "https://kpopping.com/profiles/group/Dalshabet",
-      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Dalshabet/profile.webp",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Dalshabet/profile.jpg?v=1775579404231",
       "active": true,
       "status": "active",
       "company": {
@@ -288840,6 +288959,204 @@
         "disbandmentDate": null,
         "names": {
           "stage": "Hearts2Hearts",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "f590079f-fa66-48f3-b68d-530a92d3066d",
+      "type": "coed",
+      "profileUrl": "https://kpopping.com/profiles/group/unchild",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/unchild/profile.jpg?v=1775839244194",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "UNCHILD",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "45634b96-6a77-477b-8ea2-d28f678f95b0",
+      "type": "coed",
+      "profileUrl": "https://kpopping.com/profiles/group/LE-SSERAFIM",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/LE-SSERAFIM/profile.jpg?v=1777486261090",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "LE SSERAFIM",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "737ef664-55a5-4b1a-841f-b85d72ba23c2",
+      "type": "coed",
+      "profileUrl": "https://kpopping.com/profiles/group/allhours",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/ALL-H-OURS/profile.webp",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "ALL",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "8ad030c5-4f04-4f1b-ab57-a46506ccae1c",
+      "type": "coed",
+      "profileUrl": "https://kpopping.com/profiles/group/and2ble",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/and2ble/profile.jpg?v=1775469551592",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "AND2BLE",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "909cc267-f0e4-4fc0-b0ac-17e58490a8b3",
+      "type": "coed",
+      "profileUrl": "https://kpopping.com/profiles/group/appleb",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Apple-B/profile.webp",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "Apple.B",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "9daed1f2-e741-49ac-85b6-db8de55a6eb7",
+      "type": "coed",
+      "profileUrl": "https://kpopping.com/profiles/group/baby-vox",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/BABY-V-O-X/profile.webp",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "BABY V.O.X",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "b8f18fc7-97bd-4e0d-a8d0-c6778cbbf768",
+      "type": "coed",
+      "profileUrl": "https://kpopping.com/profiles/group/bemax",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/Be-MAX/profile.webp",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "BE:MAX",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "3e695e1c-e01a-444e-a2e3-3fe45fd52682",
+      "type": "coed",
+      "profileUrl": "https://kpopping.com/profiles/group/boyfriend",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/BF/profile.jpg?v=1775203765164",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "BOYFRIEND",
+          "korean": null,
+          "japanese": null,
+          "chinese": null
+        },
+        "fandomName": null
+      }
+    },
+    {
+      "id": "0b7740f1-5836-4075-ae5a-f985fc71b170",
+      "type": "coed",
+      "profileUrl": "https://kpopping.com/profiles/group/choco12",
+      "imageUrl": "https://pub-dc9a9c6ac2a64ba48bce426ced0ac56a.r2.dev/groups/ChoCo1-2/profile.jpg",
+      "active": true,
+      "status": "active",
+      "company": {
+        "current": null
+      },
+      "groupInfo": {
+        "debutDate": null,
+        "disbandmentDate": null,
+        "names": {
+          "stage": "ChoCo1&2",
           "korean": null,
           "japanese": null,
           "chinese": null
