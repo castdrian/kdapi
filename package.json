@@ -33,7 +33,7 @@
   "dependencies": {
     "@biomejs/biome": "^2.0.4",
     "cheerio": "^1.0.0",
-    "commander": "^14.0.0",
+    "commander": "^15.0.0",
     "date-fns": "^4.1.0",
     "fuse.js": "^7.1.0",
     "https-proxy-agent": "^7.0.5",
